@@ -3,7 +3,7 @@ use bus_mapping::circuit_input_builder::CircuitsParams;
 use eth_types as zkevm_types;
 use ethers::types as anvil_types;
 
-use crate::error::Error;
+use crate::{conversion::Conversion, error::Error};
 
 #[allow(dead_code)]
 pub struct BuilderClient {
@@ -28,12 +28,19 @@ impl BuilderClient {
         }
     }
 
-    pub async fn get_block_traces(&self, block_number: u64) -> Result<(), Error> {
+    pub async fn get_block_traces(
+        &self,
+        block_number: anvil_types::U64,
+    ) -> Result<
+        (
+            anvil_types::Block<anvil_types::Transaction>,
+            Vec<zkevm_types::GethExecTrace>,
+        ),
+        Error,
+    > {
         let block = self
             .anvil
-            .block_by_number_full(anvil_types::BlockNumber::from(anvil_types::U64::from(
-                block_number,
-            )))
+            .block_by_number_full(anvil_types::BlockNumber::from(block_number))
             .await?
             .expect("block not found");
 
@@ -54,10 +61,10 @@ impl BuilderClient {
                     },
                 )
                 .await?;
-            traces.push(anvil_trace);
+            traces.push(anvil_trace.to_zkevm_type());
         }
 
-        todo!()
+        Ok((block, traces))
     }
 }
 
@@ -65,6 +72,7 @@ impl BuilderClient {
 mod tests {
     use crate::client;
     use crate::inputs_builder::BuilderClient;
+    use anvil_core::eth::transaction::EthTransactionRequest;
     use bus_mapping::circuit_input_builder::CircuitsParams;
 
     #[tokio::test]
@@ -72,5 +80,41 @@ mod tests {
         let anvil = client::setup().await;
         let bc = BuilderClient::new(anvil, CircuitsParams::default()).unwrap();
         assert_eq!(bc.chain_id.as_u64(), 31337);
+
+        let accounts = bc.anvil.accounts().unwrap();
+        let hash = bc
+            .anvil
+            .send_transaction(EthTransactionRequest {
+                from: Some(accounts[0]),
+                to: None,
+                gas_price: None,
+                max_fee_per_gas: None,
+                max_priority_fee_per_gas: None,
+                gas: None,
+                value: None,
+                data: None,
+                nonce: None,
+                chain_id: None,
+                access_list: None,
+                transaction_type: None,
+            })
+            .await
+            .unwrap();
+
+        loop {
+            if let Some(tx) = bc.anvil.transaction_by_hash(hash).await.unwrap() {
+                if let Some(block_number) = tx.block_number {
+                    let (block, traces) = bc.get_block_traces(block_number).await.unwrap();
+                    assert_eq!(block.transactions.len(), 1);
+                    assert_eq!(traces.len(), 1);
+                    break;
+                } else {
+                    bc.anvil.mine_one().await;
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+            } else {
+                panic!("transaction not available");
+            }
+        }
     }
 }

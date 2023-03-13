@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 # anvil
 anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ] }
+anvil-core = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil-core",  features = [ "default" ] }
 ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["ws"] }
 
 # zkevm

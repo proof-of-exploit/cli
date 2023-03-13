@@ -6216,6 +6216,7 @@ name = "zk-proof-of-evm-exploit"
 version = "0.1.0"
 dependencies = [
  "anvil",
+ "anvil-core",
  "bus-mapping",
  "eth-types",
  "ethers",
