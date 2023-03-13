@@ -1,7 +1,7 @@
 use anvil::eth::EthApi;
 use bus_mapping::circuit_input_builder::CircuitsParams;
-use eth_types;
-use ethers::types::{BlockNumber, GethDebugTracingOptions, U64};
+use eth_types as zkevm_types;
+use ethers::types as anvil_types;
 
 use crate::error::Error;
 
@@ -18,7 +18,7 @@ impl BuilderClient {
         if let Some(chain_id) = anvil.eth_chain_id()? {
             Ok(Self {
                 anvil,
-                chain_id: eth_types::Word::from(chain_id.as_u64()),
+                chain_id: zkevm_types::Word::from(chain_id.as_u64()),
                 circuit_params,
             })
         } else {
@@ -31,7 +31,9 @@ impl BuilderClient {
     pub async fn get_block_traces(&self, block_number: u64) -> Result<(), Error> {
         let block = self
             .anvil
-            .block_by_number_full(BlockNumber::from(U64::from(block_number)))
+            .block_by_number_full(anvil_types::BlockNumber::from(anvil_types::U64::from(
+                block_number,
+            )))
             .await?
             .expect("block not found");
 
@@ -41,7 +43,7 @@ impl BuilderClient {
                 .anvil
                 .debug_trace_transaction(
                     tx.hash,
-                    GethDebugTracingOptions {
+                    anvil_types::GethDebugTracingOptions {
                         enable_memory: Some(false),
                         disable_stack: Some(false),
                         disable_storage: Some(false),
