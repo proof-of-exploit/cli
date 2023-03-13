@@ -12,6 +12,7 @@ ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["ws"] }
 # zkevm
 bus-mapping = { path = "../zkevm-circuits/bus-mapping", features = [ "test" ] }
 eth-types = { path = "../zkevm-circuits/eth-types"}
+ethers-core = "0.17.0"
 zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test" ] }
 
 # misc

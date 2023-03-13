@@ -16,3 +16,9 @@ impl From<BlockchainError> for Error {
         Error::AnvilError(err)
     }
 }
+
+impl From<bus_mapping::Error> for Error {
+    fn from(err: bus_mapping::Error) -> Self {
+        Error::BusMappingError(err)
+    }
+}

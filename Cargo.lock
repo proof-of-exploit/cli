@@ -6220,6 +6220,7 @@ dependencies = [
  "bus-mapping",
  "eth-types",
  "ethers",
+ "ethers-core 0.17.0",
  "tokio",
  "zkevm-circuits",
 ]

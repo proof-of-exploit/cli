@@ -1,15 +1,45 @@
 use anvil::eth::EthApi;
-use bus_mapping::circuit_input_builder::CircuitsParams;
+use bus_mapping::{
+    circuit_input_builder::{
+        gen_state_access_trace, Access, AccessSet, AccessValue, CircuitsParams,
+    },
+    operation::RW,
+};
 use eth_types as zkevm_types;
 use ethers::types as anvil_types;
 
-use crate::{conversion::Conversion, error::Error};
+use crate::{
+    conversion::{zkevm_Block, Conversion},
+    error::Error,
+};
 
 #[allow(dead_code)]
 pub struct BuilderClient {
     anvil: EthApi,
     chain_id: eth_types::Word,
     circuit_params: CircuitsParams,
+}
+
+pub fn get_state_accesses(
+    block: &zkevm_Block,
+    geth_traces: &[eth_types::GethExecTrace],
+) -> Result<AccessSet, Error> {
+    let mut block_access_trace = vec![Access::new(
+        None,
+        RW::WRITE,
+        AccessValue::Account {
+            address: block
+                .author
+                .ok_or(Error::InternalError("Incomplete block"))?,
+        },
+    )];
+    for (tx_index, tx) in block.transactions.iter().enumerate() {
+        let geth_trace = &geth_traces[tx_index];
+        let tx_access_trace = gen_state_access_trace(block, tx, geth_trace)?;
+        block_access_trace.extend(tx_access_trace);
+    }
+
+    Ok(AccessSet::from(block_access_trace))
 }
 
 #[allow(dead_code)]
@@ -28,16 +58,16 @@ impl BuilderClient {
         }
     }
 
+    pub async fn gen(&self, block_number: anvil_types::U64) -> Result<(), Error> {
+        let (block, traces) = self.get_block_traces(block_number).await?;
+        let result = get_state_accesses(&block, &traces);
+        todo!()
+    }
+
     pub async fn get_block_traces(
         &self,
         block_number: anvil_types::U64,
-    ) -> Result<
-        (
-            anvil_types::Block<anvil_types::Transaction>,
-            Vec<zkevm_types::GethExecTrace>,
-        ),
-        Error,
-    > {
+    ) -> Result<(zkevm_Block, Vec<zkevm_types::GethExecTrace>), Error> {
         let block = self
             .anvil
             .block_by_number_full(anvil_types::BlockNumber::from(block_number))
@@ -64,7 +94,7 @@ impl BuilderClient {
             traces.push(anvil_trace.to_zkevm_type());
         }
 
-        Ok((block, traces))
+        Ok((block.to_zkevm_type(), traces))
     }
 }
 
