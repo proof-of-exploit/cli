@@ -6218,6 +6218,7 @@ dependencies = [
  "anvil",
  "bus-mapping",
  "eth-types",
+ "ethers",
  "tokio",
  "zkevm-circuits",
 ]

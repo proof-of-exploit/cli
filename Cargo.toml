@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# anvil
 anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ] }
+ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["ws"] }
+
+# zkevm
 bus-mapping = { path = "../zkevm-circuits/bus-mapping", features = [ "test" ] }
 eth-types = { path = "../zkevm-circuits/eth-types"}
 zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test" ] }
+
+# misc
 tokio = { version = "1.13", features = ["macros"] }

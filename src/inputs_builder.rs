@@ -1,6 +1,7 @@
 use anvil::eth::EthApi;
 use bus_mapping::circuit_input_builder::CircuitsParams;
 use eth_types;
+use ethers::types::{BlockNumber, GethDebugTracingOptions, U64};
 
 use crate::error::Error;
 
@@ -14,7 +15,7 @@ pub struct BuilderClient {
 #[allow(dead_code)]
 impl BuilderClient {
     pub fn new(anvil: EthApi, circuit_params: CircuitsParams) -> Result<Self, Error> {
-        if let Some(chain_id) = anvil.eth_chain_id().unwrap() {
+        if let Some(chain_id) = anvil.eth_chain_id()? {
             Ok(Self {
                 anvil,
                 chain_id: eth_types::Word::from(chain_id.as_u64()),
@@ -25,6 +26,36 @@ impl BuilderClient {
                 "Unable to get chain id from ETH client",
             ))
         }
+    }
+
+    pub async fn get_block_traces(&self, block_number: u64) -> Result<(), Error> {
+        let block = self
+            .anvil
+            .block_by_number_full(BlockNumber::from(U64::from(block_number)))
+            .await?
+            .expect("block not found");
+
+        let mut traces = Vec::new();
+        for tx in &block.transactions {
+            let anvil_trace = self
+                .anvil
+                .debug_trace_transaction(
+                    tx.hash,
+                    GethDebugTracingOptions {
+                        enable_memory: Some(false),
+                        disable_stack: Some(false),
+                        disable_storage: Some(false),
+                        enable_return_data: Some(true),
+                        tracer: None,
+                        tracer_config: None,
+                        timeout: None,
+                    },
+                )
+                .await?;
+            traces.push(anvil_trace);
+        }
+
+        todo!()
     }
 }
 
