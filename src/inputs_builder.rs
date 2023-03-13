@@ -4,12 +4,14 @@ use eth_types;
 
 use crate::error::Error;
 
+#[allow(dead_code)]
 pub struct BuilderClient {
     anvil: EthApi,
     chain_id: eth_types::Word,
     circuit_params: CircuitsParams,
 }
 
+#[allow(dead_code)]
 impl BuilderClient {
     pub fn new(anvil: EthApi, circuit_params: CircuitsParams) -> Result<Self, Error> {
         if let Some(chain_id) = anvil.eth_chain_id().unwrap() {
@@ -19,7 +21,9 @@ impl BuilderClient {
                 circuit_params,
             })
         } else {
-            panic!("Unable to get chain id from ETH client")
+            Err(Error::InternalError(
+                "Unable to get chain id from ETH client",
+            ))
         }
     }
 }

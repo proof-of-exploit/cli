@@ -1,5 +1,6 @@
 use anvil::eth::error::BlockchainError;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum Error {
     // error coming from anvil

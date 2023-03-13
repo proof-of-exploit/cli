@@ -1,5 +1,6 @@
 use anvil::{eth::EthApi, spawn, NodeConfig};
 
+#[allow(dead_code)]
 pub async fn setup() -> EthApi {
     let mut nc = NodeConfig::default();
     nc.port = 8548;
