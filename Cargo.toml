@@ -3,8 +3,9 @@ name = "zk-proof-of-evm-exploit"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ] }
+bus-mapping = { path = "../zkevm-circuits/bus-mapping", features = [ "test" ] }
+eth-types = { path = "../zkevm-circuits/eth-types"}
+zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test" ] }
 tokio = { version = "1.13", features = ["macros"] }
