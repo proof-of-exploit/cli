@@ -6,3 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ] }
+tokio = { version = "1.13", features = ["macros"] }
