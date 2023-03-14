@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
-};
+use std::{collections::HashMap, str::FromStr};
 
 use eth_types as zkevm_types;
 use ethers::{
@@ -12,6 +9,13 @@ use ethers_core::types as zkevm_types_2;
 
 pub trait Conversion<T> {
     fn to_zkevm_type(&self) -> T;
+}
+
+pub fn convert_option<A: Conversion<Z>, Z>(some_val: Option<A>) -> Option<Z> {
+    match some_val {
+        Some(val) => Some(val.to_zkevm_type()),
+        None => None,
+    }
 }
 
 impl Conversion<zkevm_types::U256> for anvil_types::U256 {
@@ -72,9 +76,53 @@ impl Conversion<zkevm_types_2::Bloom> for anvil_types::Bloom {
     }
 }
 
+impl Conversion<zkevm_types_2::transaction::eip2930::AccessList>
+    for anvil_types::transaction::eip2930::AccessList
+{
+    fn to_zkevm_type(&self) -> zkevm_types_2::transaction::eip2930::AccessList {
+        zkevm_types_2::transaction::eip2930::AccessList(
+            self.0
+                .iter()
+                .map(|item| zkevm_types_2::transaction::eip2930::AccessListItem {
+                    address: item.address.to_zkevm_type(),
+                    storage_keys: item
+                        .storage_keys
+                        .iter()
+                        .map(|key| key.to_zkevm_type())
+                        .collect(),
+                })
+                .collect(),
+        )
+    }
+}
+
 impl Conversion<zkevm_types::Transaction> for anvil_types::Transaction {
     fn to_zkevm_type(&self) -> zkevm_types_2::Transaction {
-        todo!()
+        zkevm_types_2::Transaction {
+            hash: self.hash.to_zkevm_type(),
+            nonce: self.nonce.to_zkevm_type(),
+            block_hash: convert_option(self.block_hash),
+            block_number: convert_option(self.block_number),
+            transaction_index: convert_option(self.transaction_index),
+            from: self.from.to_zkevm_type(),
+            to: convert_option(self.to),
+            value: self.value.to_zkevm_type(),
+            gas_price: convert_option(self.gas_price),
+            gas: self.gas.to_zkevm_type(),
+            input: self.input.to_zkevm_type(),
+            v: self.v.to_zkevm_type(),
+            r: self.r.to_zkevm_type(),
+            s: self.s.to_zkevm_type(),
+            transaction_type: convert_option(self.transaction_type),
+            access_list: match &self.access_list {
+                Some(access_list) => Some(access_list.to_zkevm_type()),
+                None => None,
+            },
+            max_priority_fee_per_gas: convert_option(self.max_priority_fee_per_gas),
+            max_fee_per_gas: convert_option(self.max_fee_per_gas),
+            chain_id: convert_option(self.chain_id),
+            other: zkevm_types_2::OtherFields::default(),
+        }
     }
 }
 
@@ -87,36 +135,21 @@ pub type zkevm_Block = zkevm_types::Block<zkevm_types::Transaction>;
 impl Conversion<zkevm_Block> for anvil_Block {
     fn to_zkevm_type(&self) -> zkevm_Block {
         zkevm_types::Block {
-            hash: match self.hash {
-                Some(hash) => Some(hash.to_zkevm_type()),
-                None => None,
-            },
+            hash: convert_option(self.hash),
             parent_hash: self.parent_hash.to_zkevm_type(),
             uncles_hash: self.uncles_hash.to_zkevm_type(),
-            author: match self.author {
-                Some(author) => Some(author.to_zkevm_type()),
-                None => None,
-            },
+            author: convert_option(self.author),
             state_root: self.state_root.to_zkevm_type(),
             transactions_root: self.transactions_root.to_zkevm_type(),
             receipts_root: self.receipts_root.to_zkevm_type(),
-            number: match self.number {
-                Some(number) => Some(number.to_zkevm_type()),
-                None => None,
-            },
+            number: convert_option(self.number),
             gas_used: self.gas_used.to_zkevm_type(),
             gas_limit: self.gas_limit.to_zkevm_type(),
             extra_data: self.extra_data.to_zkevm_type(),
-            logs_bloom: match self.logs_bloom {
-                Some(logs_bloom) => Some(logs_bloom.to_zkevm_type()),
-                None => None,
-            },
+            logs_bloom: convert_option(self.logs_bloom),
             timestamp: self.timestamp.to_zkevm_type(),
             difficulty: self.difficulty.to_zkevm_type(),
-            total_difficulty: match self.total_difficulty {
-                Some(total_difficulty) => Some(total_difficulty.to_zkevm_type()),
-                None => None,
-            },
+            total_difficulty: convert_option(self.total_difficulty),
             seal_fields: self.seal_fields.iter().map(|b| b.to_zkevm_type()).collect(),
             uncles: self.uncles.iter().map(|b| b.to_zkevm_type()).collect(),
             transactions: self
@@ -124,22 +157,10 @@ impl Conversion<zkevm_Block> for anvil_Block {
                 .iter()
                 .map(|b| b.to_zkevm_type())
                 .collect(),
-            size: match self.size {
-                Some(size) => Some(size.to_zkevm_type()),
-                None => None,
-            },
-            mix_hash: match self.mix_hash {
-                Some(mix_hash) => Some(mix_hash.to_zkevm_type()),
-                None => None,
-            },
-            nonce: match self.nonce {
-                Some(nonce) => Some(nonce.to_zkevm_type()),
-                None => None,
-            },
-            base_fee_per_gas: match self.base_fee_per_gas {
-                Some(base_fee_per_gas) => Some(base_fee_per_gas.to_zkevm_type()),
-                None => None,
-            },
+            size: convert_option(self.size),
+            mix_hash: convert_option(self.mix_hash),
+            nonce: convert_option(self.nonce),
+            base_fee_per_gas: convert_option(self.base_fee_per_gas),
             other: zkevm_types_2::OtherFields::default(),
         }
     }
