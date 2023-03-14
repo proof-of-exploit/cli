@@ -62,16 +62,22 @@ impl BuilderClient {
         }
     }
 
-    pub async fn gen(
+    pub async fn gen_inputs(
         &self,
         block_number: zkevm_types::U64,
     ) -> Result<(CircuitInputBuilder, zkevm_Block), Error> {
-        let (block, traces) = self.get_block_traces(block_number).await?;
+        let (block, traces, history_hashes, prev_state_root) = self.get_block(block_number).await?;
         let access_set = get_state_accesses(&block, &traces)?;
         let (proofs, codes) = self.get_state(block_number, access_set).await?;
         let (state_db, code_db) = build_state_code_db(proofs, codes);
-        let builder =
-            self.gen_inputs_from_state(state_db, code_db, &block, &traces, todo!(), todo!())?;
+        let builder = self.gen_inputs_from_state(
+            state_db,
+            code_db,
+            &block,
+            &traces,
+            history_hashes,
+            prev_state_root,
+        )?;
         Ok((builder, block))
     }
 
@@ -94,6 +100,59 @@ impl BuilderClient {
         let mut builder = CircuitInputBuilder::new(sdb, code_db, block);
         builder.handle_block(eth_block, geth_traces)?;
         Ok(builder)
+    }
+
+    pub async fn get_block(
+        &self,
+        block_number: zkevm_types::U64,
+    ) -> Result<
+        (
+            zkevm_Block,
+            Vec<zkevm_types::GethExecTrace>,
+            Vec<zkevm_types::Word>,
+            zkevm_types::Word,
+        ),
+        Error,
+    > {
+        let (block, traces) = self.get_block_traces(block_number).await?;
+
+        // fetch up to 256 blocks
+        let mut n_blocks = std::cmp::min(256, block_number.as_usize());
+        let mut next_hash = block.parent_hash;
+        let mut prev_state_root: Option<zkevm_types::Word> = None;
+        let mut history_hashes = vec![zkevm_types::Word::default(); n_blocks];
+        while n_blocks > 0 {
+            n_blocks -= 1;
+
+            // TODO: consider replacing it with `eth_getHeaderByHash`, it's faster
+            let header = self
+                .anvil
+                .block_by_hash(next_hash.to_anvil_type())
+                .await?
+                .expect("parent block not found");
+
+            // set the previous state root
+            if prev_state_root.is_none() {
+                prev_state_root = Some(header.state_root.to_zkevm_type());
+            }
+
+            // latest block hash is the last item
+            let block_hash = header
+                .hash
+                .ok_or(Error::InternalError("Incomplete block"))?
+                .to_zkevm_type();
+            history_hashes[n_blocks] = block_hash;
+
+            // continue
+            next_hash = header.parent_hash.to_zkevm_type();
+        }
+
+        Ok((
+            block,
+            traces,
+            history_hashes,
+            prev_state_root.unwrap_or_default(),
+        ))
     }
 
     pub async fn get_block_traces(

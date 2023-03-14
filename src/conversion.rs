@@ -19,6 +19,14 @@ impl ConversionReverse<anvil_types::H160> for zkevm_types::H160 {
     }
 }
 
+impl ConversionReverse<anvil_types::H256> for zkevm_types::H256 {
+    fn to_anvil_type(&self) -> anvil_types::H256 {
+        let mut new = anvil_types::H256::zero();
+        new.0 = self.0;
+        new
+    }
+}
+
 impl ConversionReverse<anvil_types::U64> for zkevm_types::U64 {
     fn to_anvil_type(&self) -> anvil_types::U64 {
         let mut new = anvil_types::U64::zero();
