@@ -17,3 +17,4 @@ zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test
 
 # misc
 tokio = { version = "1.13", features = ["macros"] }
+dotenv = "0.15.0"

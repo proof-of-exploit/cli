@@ -240,7 +240,7 @@ mod tests {
 
     #[tokio::test]
     async fn test() {
-        let anvil = client::setup().await;
+        let anvil = client::setup(None, None).await;
         let bc = BuilderClient::new(anvil, CircuitsParams::default()).unwrap();
         assert_eq!(bc.chain_id.as_u64(), 31337);
 
