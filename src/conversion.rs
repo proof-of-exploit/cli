@@ -2,10 +2,43 @@ use std::{collections::HashMap, str::FromStr};
 
 use eth_types as zkevm_types;
 use ethers::{
-    types::{self as anvil_types},
+    types::{self as anvil_types, BigEndianHash},
     utils::hex,
 };
 use ethers_core::types as zkevm_types_2;
+
+pub trait ConversionReverse<T> {
+    fn to_anvil_type(&self) -> T;
+}
+
+impl ConversionReverse<anvil_types::H160> for zkevm_types::H160 {
+    fn to_anvil_type(&self) -> anvil_types::H160 {
+        let mut new = anvil_types::H160::zero();
+        new.0 = self.0;
+        new
+    }
+}
+
+impl ConversionReverse<anvil_types::U64> for zkevm_types::U64 {
+    fn to_anvil_type(&self) -> anvil_types::U64 {
+        let mut new = anvil_types::U64::zero();
+        new.0 = self.0;
+        new
+    }
+}
+
+impl ConversionReverse<anvil_types::U256> for zkevm_types::U256 {
+    fn to_anvil_type(&self) -> anvil_types::U256 {
+        let mut new = anvil_types::U256::zero();
+        new.0 = self.0;
+        new
+    }
+}
+impl ConversionReverse<anvil_types::H256> for zkevm_types::U256 {
+    fn to_anvil_type(&self) -> anvil_types::H256 {
+        anvil_types::H256::from_uint(&self.to_anvil_type())
+    }
+}
 
 pub trait Conversion<T> {
     fn to_zkevm_type(&self) -> T;
@@ -217,6 +250,32 @@ impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
             }
         } else {
             panic!("unknown value in trace")
+        }
+    }
+}
+
+impl Conversion<zkevm_types::EIP1186ProofResponse> for anvil_types::EIP1186ProofResponse {
+    fn to_zkevm_type(&self) -> zkevm_types::EIP1186ProofResponse {
+        zkevm_types::EIP1186ProofResponse {
+            address: self.address.to_zkevm_type(),
+            balance: self.balance.to_zkevm_type(),
+            code_hash: self.code_hash.to_zkevm_type(),
+            nonce: zkevm_types::U256::from(self.nonce.as_u64()),
+            storage_hash: self.storage_hash.to_zkevm_type(),
+            account_proof: self
+                .account_proof
+                .iter()
+                .map(|ap| ap.to_zkevm_type())
+                .collect(),
+            storage_proof: self
+                .storage_proof
+                .iter()
+                .map(|sp| zkevm_types::StorageProof {
+                    key: sp.key.to_zkevm_type(),
+                    value: sp.value.to_zkevm_type(),
+                    proof: sp.proof.iter().map(|p| p.to_zkevm_type()).collect(),
+                })
+                .collect(),
         }
     }
 }

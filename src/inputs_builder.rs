@@ -1,15 +1,19 @@
+use std::collections::HashMap;
+
 use anvil::eth::EthApi;
 use bus_mapping::{
     circuit_input_builder::{
-        gen_state_access_trace, Access, AccessSet, AccessValue, CircuitsParams,
+        build_state_code_db, gen_state_access_trace, Access, AccessSet, AccessValue, Block,
+        CircuitInputBuilder, CircuitsParams,
     },
     operation::RW,
+    state_db::{CodeDB, StateDB},
 };
 use eth_types as zkevm_types;
 use ethers::types as anvil_types;
 
 use crate::{
-    conversion::{zkevm_Block, Conversion},
+    conversion::{zkevm_Block, Conversion, ConversionReverse},
     error::Error,
 };
 
@@ -17,7 +21,7 @@ use crate::{
 pub struct BuilderClient {
     anvil: EthApi,
     chain_id: eth_types::Word,
-    circuit_params: CircuitsParams,
+    circuits_params: CircuitsParams,
 }
 
 pub fn get_state_accesses(
@@ -44,12 +48,12 @@ pub fn get_state_accesses(
 
 #[allow(dead_code)]
 impl BuilderClient {
-    pub fn new(anvil: EthApi, circuit_params: CircuitsParams) -> Result<Self, Error> {
+    pub fn new(anvil: EthApi, circuits_params: CircuitsParams) -> Result<Self, Error> {
         if let Some(chain_id) = anvil.eth_chain_id()? {
             Ok(Self {
                 anvil,
                 chain_id: zkevm_types::Word::from(chain_id.as_u64()),
-                circuit_params,
+                circuits_params,
             })
         } else {
             Err(Error::InternalError(
@@ -58,19 +62,47 @@ impl BuilderClient {
         }
     }
 
-    pub async fn gen(&self, block_number: anvil_types::U64) -> Result<(), Error> {
+    pub async fn gen(
+        &self,
+        block_number: zkevm_types::U64,
+    ) -> Result<(CircuitInputBuilder, zkevm_Block), Error> {
         let (block, traces) = self.get_block_traces(block_number).await?;
-        let result = get_state_accesses(&block, &traces);
-        todo!()
+        let access_set = get_state_accesses(&block, &traces)?;
+        let (proofs, codes) = self.get_state(block_number, access_set).await?;
+        let (state_db, code_db) = build_state_code_db(proofs, codes);
+        let builder =
+            self.gen_inputs_from_state(state_db, code_db, &block, &traces, todo!(), todo!())?;
+        Ok((builder, block))
+    }
+
+    pub fn gen_inputs_from_state(
+        &self,
+        sdb: StateDB,
+        code_db: CodeDB,
+        eth_block: &zkevm_Block,
+        geth_traces: &[zkevm_types::GethExecTrace],
+        history_hashes: Vec<zkevm_types::Word>,
+        prev_state_root: zkevm_types::Word,
+    ) -> Result<CircuitInputBuilder, Error> {
+        let block = Block::new(
+            self.chain_id,
+            history_hashes,
+            prev_state_root,
+            eth_block,
+            self.circuits_params,
+        )?;
+        let mut builder = CircuitInputBuilder::new(sdb, code_db, block);
+        builder.handle_block(eth_block, geth_traces)?;
+        Ok(builder)
     }
 
     pub async fn get_block_traces(
         &self,
-        block_number: anvil_types::U64,
+        block_number: zkevm_types::U64,
     ) -> Result<(zkevm_Block, Vec<zkevm_types::GethExecTrace>), Error> {
         let block = self
             .anvil
-            .block_by_number_full(anvil_types::BlockNumber::from(block_number))
+            .block_by_number_full(anvil_types::BlockNumber::from(block_number.to_anvil_type()))
             .await?
             .expect("block not found");
 
@@ -96,11 +128,53 @@ impl BuilderClient {
 
         Ok((block.to_zkevm_type(), traces))
     }
+
+    pub async fn get_state(
+        &self,
+        block_num: zkevm_types::U64,
+        access_set: AccessSet,
+    ) -> Result<
+        (
+            Vec<zkevm_types::EIP1186ProofResponse>,
+            HashMap<zkevm_types::Address, Vec<u8>>,
+        ),
+        Error,
+    > {
+        let mut proofs = Vec::new();
+        for (address, key_set) in access_set.state {
+            let mut keys: Vec<zkevm_types::Word> = key_set.iter().cloned().collect();
+            keys.sort();
+            let proof = self
+                .anvil
+                .get_proof(
+                    address.to_anvil_type(),
+                    keys.iter().map(|k| k.to_anvil_type()).collect(),
+                    Some((block_num.to_anvil_type() - 1).into()),
+                )
+                .await
+                .unwrap();
+            proofs.push(proof);
+        }
+        let mut codes: HashMap<zkevm_types::Address, Vec<u8>> = HashMap::new();
+        for address in access_set.code {
+            let code = self
+                .anvil
+                .get_code(
+                    address.to_anvil_type(),
+                    Some((block_num.to_anvil_type() - 1).into()),
+                )
+                .await
+                .unwrap();
+            codes.insert(address, code.to_vec());
+        }
+        Ok((proofs.iter().map(|p| p.to_zkevm_type()).collect(), codes))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::client;
+    use crate::conversion::Conversion;
     use crate::inputs_builder::BuilderClient;
     use anvil_core::eth::transaction::EthTransactionRequest;
     use bus_mapping::circuit_input_builder::CircuitsParams;
@@ -134,7 +208,10 @@ mod tests {
         loop {
             if let Some(tx) = bc.anvil.transaction_by_hash(hash).await.unwrap() {
                 if let Some(block_number) = tx.block_number {
-                    let (block, traces) = bc.get_block_traces(block_number).await.unwrap();
+                    let (block, traces) = bc
+                        .get_block_traces(block_number.to_zkevm_type())
+                        .await
+                        .unwrap();
                     assert_eq!(block.transactions.len(), 1);
                     assert_eq!(traces.len(), 1);
                     break;
