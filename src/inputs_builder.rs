@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bus_mapping::{
+pub use bus_mapping::{
     circuit_input_builder::{
         build_state_code_db, gen_state_access_trace, Access, AccessSet, AccessValue, Block,
         CircuitInputBuilder, CircuitsParams,
@@ -14,9 +14,9 @@ use crate::{anvil::AnvilClient, error::Error};
 
 #[allow(dead_code)]
 pub struct BuilderClient {
-    anvil: AnvilClient,
-    chain_id: eth_types::Word,
-    circuits_params: CircuitsParams,
+    pub anvil: AnvilClient,
+    pub chain_id: eth_types::Word,
+    pub circuits_params: CircuitsParams,
 }
 
 pub fn get_state_accesses(
@@ -43,6 +43,15 @@ pub fn get_state_accesses(
 
 #[allow(dead_code)]
 impl BuilderClient {
+    pub async fn default() -> Result<Self, Error> {
+        Self::from_circuits_params(CircuitsParams::default()).await
+    }
+
+    pub async fn from_circuits_params(circuits_params: CircuitsParams) -> Result<Self, Error> {
+        let anvil = AnvilClient::default().await;
+        Self::new(anvil, circuits_params)
+    }
+
     pub fn new(anvil: AnvilClient, circuits_params: CircuitsParams) -> Result<Self, Error> {
         if let Some(chain_id) = anvil.eth_chain_id()? {
             Ok(Self {

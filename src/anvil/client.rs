@@ -1,5 +1,6 @@
 use crate::{
     anvil::conversion::{convert_option, ConversionReverse},
+    env::Env,
     error::Error,
     types::{anvil_types, zkevm_types},
 };
@@ -13,6 +14,11 @@ pub struct AnvilClient {
 
 #[allow(dead_code)]
 impl AnvilClient {
+    pub async fn default() -> Self {
+        let env = Env::load();
+        Self::setup(env.eth_rpc_url, env.fork_block_number).await
+    }
+
     pub async fn setup(eth_rpc_url: Option<String>, fork_block_number: Option<usize>) -> Self {
         let node_config = NodeConfig::default()
             .with_eth_rpc_url(eth_rpc_url)
