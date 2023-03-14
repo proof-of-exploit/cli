@@ -1,53 +1,11 @@
 use std::{collections::HashMap, str::FromStr};
 
-use eth_types as zkevm_types;
-use ethers::{
-    types::{self as anvil_types, BigEndianHash},
-    utils::hex,
-};
+use ethers::{types::BigEndianHash, utils::hex};
 use ethers_core::types as zkevm_types_2;
 
-pub trait ConversionReverse<T> {
-    fn to_anvil_type(&self) -> T;
-}
+use crate::types::{anvil_types, zkevm_types};
 
-impl ConversionReverse<anvil_types::H160> for zkevm_types::H160 {
-    fn to_anvil_type(&self) -> anvil_types::H160 {
-        let mut new = anvil_types::H160::zero();
-        new.0 = self.0;
-        new
-    }
-}
-
-impl ConversionReverse<anvil_types::H256> for zkevm_types::H256 {
-    fn to_anvil_type(&self) -> anvil_types::H256 {
-        let mut new = anvil_types::H256::zero();
-        new.0 = self.0;
-        new
-    }
-}
-
-impl ConversionReverse<anvil_types::U64> for zkevm_types::U64 {
-    fn to_anvil_type(&self) -> anvil_types::U64 {
-        let mut new = anvil_types::U64::zero();
-        new.0 = self.0;
-        new
-    }
-}
-
-impl ConversionReverse<anvil_types::U256> for zkevm_types::U256 {
-    fn to_anvil_type(&self) -> anvil_types::U256 {
-        let mut new = anvil_types::U256::zero();
-        new.0 = self.0;
-        new
-    }
-}
-impl ConversionReverse<anvil_types::H256> for zkevm_types::U256 {
-    fn to_anvil_type(&self) -> anvil_types::H256 {
-        anvil_types::H256::from_uint(&self.to_anvil_type())
-    }
-}
-
+// Conversion from anvil types to zkevm types
 pub trait Conversion<T> {
     fn to_zkevm_type(&self) -> T;
 }
@@ -117,9 +75,7 @@ impl Conversion<zkevm_types_2::Bloom> for anvil_types::Bloom {
     }
 }
 
-impl Conversion<zkevm_types_2::transaction::eip2930::AccessList>
-    for anvil_types::transaction::eip2930::AccessList
-{
+impl Conversion<zkevm_types_2::transaction::eip2930::AccessList> for anvil_types::AccessList {
     fn to_zkevm_type(&self) -> zkevm_types_2::transaction::eip2930::AccessList {
         zkevm_types_2::transaction::eip2930::AccessList(
             self.0
@@ -167,14 +123,8 @@ impl Conversion<zkevm_types::Transaction> for anvil_types::Transaction {
     }
 }
 
-#[allow(non_camel_case_types)]
-pub type anvil_Block = anvil_types::Block<anvil_types::Transaction>;
-
-#[allow(non_camel_case_types)]
-pub type zkevm_Block = zkevm_types::Block<zkevm_types::Transaction>;
-
-impl Conversion<zkevm_Block> for anvil_Block {
-    fn to_zkevm_type(&self) -> zkevm_Block {
+impl<A: Conversion<Z>, Z> Conversion<zkevm_types::Block<Z>> for anvil_types::Block<A> {
+    fn to_zkevm_type(&self) -> zkevm_types::Block<Z> {
         zkevm_types::Block {
             hash: convert_option(self.hash),
             parent_hash: self.parent_hash.to_zkevm_type(),
@@ -212,7 +162,7 @@ impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
         if let ethers::types::GethTrace::Known(anvil_trace_frame) = self.to_owned() {
             if let ethers::types::GethTraceFrame::Default(anvil_trace) = anvil_trace_frame {
                 zkevm_types::GethExecTrace {
-                    gas: zkevm_types::evm_types::Gas(anvil_trace.gas.as_u64()),
+                    gas: zkevm_types::Gas(anvil_trace.gas.as_u64()),
                     failed: anvil_trace.failed,
                     return_value: hex::encode(anvil_trace.return_value.as_ref()), // TODO see if 0x adjustment is needed
                     struct_logs: anvil_trace
@@ -220,26 +170,23 @@ impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
                         .into_iter()
                         .map(|step| {
                             zkevm_types::GethExecStep {
-                                pc: zkevm_types::evm_types::ProgramCounter(
+                                pc: zkevm_types::ProgramCounter(
                                     usize::try_from(step.pc).expect("error converting pc"),
                                 ),
-                                op: zkevm_types::evm_types::OpcodeId::from_str(&step.op.as_str())
-                                    .unwrap(),
-                                gas: zkevm_types::evm_types::Gas(step.gas),
-                                gas_cost: zkevm_types::evm_types::GasCost(step.gas_cost),
-                                refund: zkevm_types::evm_types::Gas(
-                                    step.refund_counter.unwrap_or(0),
-                                ),
+                                op: zkevm_types::OpcodeId::from_str(&step.op.as_str()).unwrap(),
+                                gas: zkevm_types::Gas(step.gas),
+                                gas_cost: zkevm_types::GasCost(step.gas_cost),
+                                refund: zkevm_types::Gas(step.refund_counter.unwrap_or(0)),
                                 depth: u16::try_from(step.depth).expect("error converting depth"),
                                 error: step.error,
-                                stack: zkevm_types::evm_types::Stack(
+                                stack: zkevm_types::Stack(
                                     step.stack
                                         .unwrap_or(Vec::new())
                                         .into_iter()
                                         .map(|w| w.to_zkevm_type())
                                         .collect(),
                                 ),
-                                memory: zkevm_types::evm_types::Memory::default(), // memory is not enabled
+                                memory: zkevm_types::Memory::default(), // memory is not enabled
                                 storage: {
                                     let tree = step.storage.unwrap_or_default();
                                     let mut hash_map =
@@ -247,7 +194,7 @@ impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
                                     for (key, value) in &tree {
                                         hash_map.insert(key.to_zkevm_type(), value.to_zkevm_type());
                                     }
-                                    zkevm_types::evm_types::Storage(hash_map)
+                                    zkevm_types::Storage(hash_map)
                                 },
                             }
                         })
@@ -285,5 +232,61 @@ impl Conversion<zkevm_types::EIP1186ProofResponse> for anvil_types::EIP1186Proof
                 })
                 .collect(),
         }
+    }
+}
+
+// Conversion from zkevm types to anvil types
+pub trait ConversionReverse<T> {
+    fn to_anvil_type(&self) -> T;
+}
+
+pub fn convert_option_reverse<A: ConversionReverse<Z>, Z>(some_val: Option<A>) -> Option<Z> {
+    match some_val {
+        Some(val) => Some(val.to_anvil_type()),
+        None => None,
+    }
+}
+
+impl ConversionReverse<anvil_types::H160> for zkevm_types::H160 {
+    fn to_anvil_type(&self) -> anvil_types::H160 {
+        let mut new = anvil_types::H160::zero();
+        new.0 = self.0;
+        new
+    }
+}
+
+impl ConversionReverse<anvil_types::H256> for zkevm_types::H256 {
+    fn to_anvil_type(&self) -> anvil_types::H256 {
+        let mut new = anvil_types::H256::zero();
+        new.0 = self.0;
+        new
+    }
+}
+
+impl ConversionReverse<anvil_types::U64> for zkevm_types::U64 {
+    fn to_anvil_type(&self) -> anvil_types::U64 {
+        let mut new = anvil_types::U64::zero();
+        new.0 = self.0;
+        new
+    }
+}
+
+impl ConversionReverse<anvil_types::U256> for zkevm_types::U256 {
+    fn to_anvil_type(&self) -> anvil_types::U256 {
+        let mut new = anvil_types::U256::zero();
+        new.0 = self.0;
+        new
+    }
+}
+
+impl ConversionReverse<anvil_types::H256> for zkevm_types::U256 {
+    fn to_anvil_type(&self) -> anvil_types::H256 {
+        anvil_types::H256::from_uint(&self.to_anvil_type())
+    }
+}
+
+impl ConversionReverse<anvil_types::Bytes> for zkevm_types::Bytes {
+    fn to_anvil_type(&self) -> anvil_types::Bytes {
+        anvil_types::Bytes::from(self.to_vec())
     }
 }

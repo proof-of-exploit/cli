@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anvil::eth::EthApi;
 use bus_mapping::{
     circuit_input_builder::{
         build_state_code_db, gen_state_access_trace, Access, AccessSet, AccessValue, Block,
@@ -9,23 +8,19 @@ use bus_mapping::{
     operation::RW,
     state_db::{CodeDB, StateDB},
 };
-use eth_types as zkevm_types;
-use ethers::types as anvil_types;
 
-use crate::{
-    conversion::{zkevm_Block, Conversion, ConversionReverse},
-    error::Error,
-};
+use crate::types::zkevm_types::*;
+use crate::{anvil::AnvilClient, error::Error};
 
 #[allow(dead_code)]
 pub struct BuilderClient {
-    anvil: EthApi,
+    anvil: AnvilClient,
     chain_id: eth_types::Word,
     circuits_params: CircuitsParams,
 }
 
 pub fn get_state_accesses(
-    block: &zkevm_Block,
+    block: &EthBlockFull,
     geth_traces: &[eth_types::GethExecTrace],
 ) -> Result<AccessSet, Error> {
     let mut block_access_trace = vec![Access::new(
@@ -48,11 +43,11 @@ pub fn get_state_accesses(
 
 #[allow(dead_code)]
 impl BuilderClient {
-    pub fn new(anvil: EthApi, circuits_params: CircuitsParams) -> Result<Self, Error> {
+    pub fn new(anvil: AnvilClient, circuits_params: CircuitsParams) -> Result<Self, Error> {
         if let Some(chain_id) = anvil.eth_chain_id()? {
             Ok(Self {
                 anvil,
-                chain_id: zkevm_types::Word::from(chain_id.as_u64()),
+                chain_id: Word::from(chain_id.as_usize()),
                 circuits_params,
             })
         } else {
@@ -64,8 +59,8 @@ impl BuilderClient {
 
     pub async fn gen_inputs(
         &self,
-        block_number: zkevm_types::U64,
-    ) -> Result<(CircuitInputBuilder, zkevm_Block), Error> {
+        block_number: usize,
+    ) -> Result<(CircuitInputBuilder, EthBlockFull), Error> {
         let (block, traces, history_hashes, prev_state_root) = self.get_block(block_number).await?;
         let access_set = get_state_accesses(&block, &traces)?;
         let (proofs, codes) = self.get_state(block_number, access_set).await?;
@@ -85,10 +80,10 @@ impl BuilderClient {
         &self,
         sdb: StateDB,
         code_db: CodeDB,
-        eth_block: &zkevm_Block,
-        geth_traces: &[zkevm_types::GethExecTrace],
-        history_hashes: Vec<zkevm_types::Word>,
-        prev_state_root: zkevm_types::Word,
+        eth_block: &EthBlockFull,
+        geth_traces: &[GethExecTrace],
+        history_hashes: Vec<Word>,
+        prev_state_root: Word,
     ) -> Result<CircuitInputBuilder, Error> {
         let block = Block::new(
             self.chain_id,
@@ -104,47 +99,38 @@ impl BuilderClient {
 
     pub async fn get_block(
         &self,
-        block_number: zkevm_types::U64,
-    ) -> Result<
-        (
-            zkevm_Block,
-            Vec<zkevm_types::GethExecTrace>,
-            Vec<zkevm_types::Word>,
-            zkevm_types::Word,
-        ),
-        Error,
-    > {
+        block_number: usize,
+    ) -> Result<(EthBlockFull, Vec<GethExecTrace>, Vec<Word>, Word), Error> {
         let (block, traces) = self.get_block_traces(block_number).await?;
 
         // fetch up to 256 blocks
-        let mut n_blocks = std::cmp::min(256, block_number.as_usize());
+        let mut n_blocks = std::cmp::min(256, block_number);
         let mut next_hash = block.parent_hash;
-        let mut prev_state_root: Option<zkevm_types::Word> = None;
-        let mut history_hashes = vec![zkevm_types::Word::default(); n_blocks];
+        let mut prev_state_root: Option<Word> = None;
+        let mut history_hashes = vec![Word::default(); n_blocks as usize];
         while n_blocks > 0 {
             n_blocks -= 1;
 
             // TODO: consider replacing it with `eth_getHeaderByHash`, it's faster
             let header = self
                 .anvil
-                .block_by_hash(next_hash.to_anvil_type())
+                .block_by_hash(next_hash)
                 .await?
                 .expect("parent block not found");
 
             // set the previous state root
             if prev_state_root.is_none() {
-                prev_state_root = Some(header.state_root.to_zkevm_type());
+                prev_state_root = Some(h256_to_u256(header.state_root));
             }
 
             // latest block hash is the last item
             let block_hash = header
                 .hash
-                .ok_or(Error::InternalError("Incomplete block"))?
-                .to_zkevm_type();
-            history_hashes[n_blocks] = block_hash;
+                .ok_or(Error::InternalError("Incomplete block"))?;
+            history_hashes[n_blocks] = h256_to_u256(block_hash);
 
             // continue
-            next_hash = header.parent_hash.to_zkevm_type();
+            next_hash = header.parent_hash;
         }
 
         Ok((
@@ -157,11 +143,11 @@ impl BuilderClient {
 
     pub async fn get_block_traces(
         &self,
-        block_number: zkevm_types::U64,
-    ) -> Result<(zkevm_Block, Vec<zkevm_types::GethExecTrace>), Error> {
+        block_number: usize,
+    ) -> Result<(EthBlockFull, Vec<GethExecTrace>), Error> {
         let block = self
             .anvil
-            .block_by_number_full(anvil_types::BlockNumber::from(block_number.to_anvil_type()))
+            .block_by_number_full(block_number)
             .await?
             .expect("block not found");
 
@@ -171,7 +157,7 @@ impl BuilderClient {
                 .anvil
                 .debug_trace_transaction(
                     tx.hash,
-                    anvil_types::GethDebugTracingOptions {
+                    GethDebugTracingOptions {
                         enable_memory: Some(false),
                         disable_stack: Some(false),
                         disable_storage: Some(false),
@@ -182,95 +168,68 @@ impl BuilderClient {
                     },
                 )
                 .await?;
-            traces.push(anvil_trace.to_zkevm_type());
+            traces.push(anvil_trace);
         }
 
-        Ok((block.to_zkevm_type(), traces))
+        Ok((block, traces))
     }
 
     pub async fn get_state(
         &self,
-        block_num: zkevm_types::U64,
+        block_num: usize,
         access_set: AccessSet,
-    ) -> Result<
-        (
-            Vec<zkevm_types::EIP1186ProofResponse>,
-            HashMap<zkevm_types::Address, Vec<u8>>,
-        ),
-        Error,
-    > {
+    ) -> Result<(Vec<EIP1186ProofResponse>, HashMap<Address, Vec<u8>>), Error> {
         let mut proofs = Vec::new();
         for (address, key_set) in access_set.state {
-            let mut keys: Vec<zkevm_types::Word> = key_set.iter().cloned().collect();
+            let mut keys: Vec<Word> = key_set.iter().cloned().collect();
             keys.sort();
             let proof = self
                 .anvil
-                .get_proof(
-                    address.to_anvil_type(),
-                    keys.iter().map(|k| k.to_anvil_type()).collect(),
-                    Some((block_num.to_anvil_type() - 1).into()),
-                )
+                .get_proof(address, keys, Some((block_num - 1).into()))
                 .await
                 .unwrap();
             proofs.push(proof);
         }
-        let mut codes: HashMap<zkevm_types::Address, Vec<u8>> = HashMap::new();
+        let mut codes: HashMap<Address, Vec<u8>> = HashMap::new();
         for address in access_set.code {
             let code = self
                 .anvil
-                .get_code(
-                    address.to_anvil_type(),
-                    Some((block_num.to_anvil_type() - 1).into()),
-                )
+                .get_code(address, Some((block_num - 1).into()))
                 .await
                 .unwrap();
             codes.insert(address, code.to_vec());
         }
-        Ok((proofs.iter().map(|p| p.to_zkevm_type()).collect(), codes))
+        Ok((proofs, codes))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::client;
-    use crate::conversion::Conversion;
+    use crate::anvil::AnvilClient;
     use crate::inputs_builder::BuilderClient;
-    use anvil_core::eth::transaction::EthTransactionRequest;
     use bus_mapping::circuit_input_builder::CircuitsParams;
 
     #[tokio::test]
     async fn test() {
-        let anvil = client::setup(None, None).await;
+        let anvil = AnvilClient::setup(None, None).await;
         let bc = BuilderClient::new(anvil, CircuitsParams::default()).unwrap();
-        assert_eq!(bc.chain_id.as_u64(), 31337);
+        assert_eq!(bc.chain_id.as_usize(), 31337);
 
-        let accounts = bc.anvil.accounts().unwrap();
         let hash = bc
             .anvil
-            .send_transaction(EthTransactionRequest {
-                from: Some(accounts[0]),
-                to: None,
-                gas_price: None,
-                max_fee_per_gas: None,
-                max_priority_fee_per_gas: None,
-                gas: None,
-                value: None,
-                data: None,
-                nonce: None,
-                chain_id: None,
-                access_list: None,
-                transaction_type: None,
-            })
+            .fund_wallet(
+                "0x2CA4c197AE776f675A114FBCB0B03Be845f0316d"
+                    .parse()
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
         loop {
             if let Some(tx) = bc.anvil.transaction_by_hash(hash).await.unwrap() {
                 if let Some(block_number) = tx.block_number {
-                    let (block, traces) = bc
-                        .get_block_traces(block_number.to_zkevm_type())
-                        .await
-                        .unwrap();
+                    let (block, traces) =
+                        bc.get_block_traces(block_number.as_usize()).await.unwrap();
                     assert_eq!(block.transactions.len(), 1);
                     assert_eq!(traces.len(), 1);
                     break;
