@@ -8,6 +8,8 @@ pub use bus_mapping::{
     operation::RW,
     state_db::{CodeDB, StateDB},
 };
+use halo2_proofs::halo2curves::bn256::Fr;
+use zkevm_circuits::witness::block_convert;
 
 use crate::types::zkevm_types::*;
 use crate::{anvil::AnvilClient, error::Error};
@@ -66,6 +68,17 @@ impl BuilderClient {
         }
     }
 
+    pub async fn gen_witness(
+        &self,
+        block_number: usize,
+    ) -> Result<zkevm_circuits::witness::Block<Fr>, Error> {
+        let (circuit_input_builder, _) = self.gen_inputs(block_number).await?;
+        Ok(block_convert::<Fr>(
+            &circuit_input_builder.block,
+            &circuit_input_builder.code_db,
+        )?)
+    }
+
     pub async fn gen_inputs(
         &self,
         block_number: usize,
@@ -85,7 +98,7 @@ impl BuilderClient {
         Ok((builder, block))
     }
 
-    pub fn gen_inputs_from_state(
+    fn gen_inputs_from_state(
         &self,
         sdb: StateDB,
         code_db: CodeDB,
@@ -106,7 +119,7 @@ impl BuilderClient {
         Ok(builder)
     }
 
-    pub async fn get_block(
+    async fn get_block(
         &self,
         block_number: usize,
     ) -> Result<(EthBlockFull, Vec<GethExecTrace>, Vec<Word>, Word), Error> {
@@ -150,7 +163,7 @@ impl BuilderClient {
         ))
     }
 
-    pub async fn get_block_traces(
+    async fn get_block_traces(
         &self,
         block_number: usize,
     ) -> Result<(EthBlockFull, Vec<GethExecTrace>), Error> {
@@ -183,7 +196,7 @@ impl BuilderClient {
         Ok((block, traces))
     }
 
-    pub async fn get_state(
+    async fn get_state(
         &self,
         block_num: usize,
         access_set: AccessSet,
