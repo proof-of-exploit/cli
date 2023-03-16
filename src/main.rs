@@ -1,10 +1,6 @@
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
-use zk_proof_of_evm_exploit::BuilderClient;
-use zkevm_circuits::{
-    super_circuit::SuperCircuit,
-    util::{log2_ceil, SubCircuit},
-};
-
+use zk_proof_of_evm_exploit::{BuilderClient, ExploitCircuit};
+use zkevm_circuits::util::{log2_ceil, SubCircuit};
 #[tokio::main]
 async fn main() {
     println!("Hello, world!");
@@ -38,18 +34,10 @@ async fn main() {
         .gen_witness(tx.block_number.unwrap().as_usize())
         .await
         .unwrap();
-    let circuit = SuperCircuit::<Fr, 1, 256, 0x100>::new_from_block(&witness);
-    let (_, rows_needed) = SuperCircuit::<Fr, 1, 256, 0x100>::min_num_rows_block(&witness);
+    let circuit = ExploitCircuit::<Fr, 1, 256, 0x100>::new_from_block(&witness);
+    let (_, rows_needed) = ExploitCircuit::<Fr, 1, 256, 0x100>::min_num_rows_block(&witness);
     let k = log2_ceil(64 + rows_needed);
     let instance = circuit.instance();
-
-    // let (circuit_input_builder, _) = builder
-    //     .gen_inputs(tx.block_number.unwrap().as_usize())
-    //     .await
-    //     .unwrap();
-    // let (degree, circuit, instance) =
-    //     SuperCircuit::<Fr, 1, 256, 0x100>::build_from_circuit_input_builder(&circuit_input_builder)
-    //         .unwrap();
 
     println!("proving");
     let prover = MockProver::run(k, &circuit, instance).unwrap();

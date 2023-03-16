@@ -15,6 +15,7 @@ eth-types = { path = "../zkevm-circuits/eth-types"}
 ethers-core = "0.17.0"
 zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test" ] }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" } 
+itertools = "0.10"
 
 # misc
 tokio = { version = "1.13", features = ["macros"] }
