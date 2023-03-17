@@ -1,3 +1,5 @@
+use std::{thread::sleep, time::Duration};
+
 use crate::{
     anvil::conversion::{convert_option, ConversionReverse},
     env::Env,
@@ -173,6 +175,16 @@ impl AnvilClient {
 
     pub async fn mine_one(&self) -> () {
         self.eth_api.mine_one().await;
+    }
+
+    pub async fn wait_for_transaction(&self, hash: zkevm_types::Hash) -> Result<(), Error> {
+        loop {
+            let tx = self.transaction_by_hash(hash).await.unwrap().unwrap();
+            if tx.block_number.is_some() {
+                return Ok(());
+            }
+            sleep(Duration::from_secs(1))
+        }
     }
 }
 
