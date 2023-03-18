@@ -6228,6 +6228,7 @@ dependencies = [
  "eth-types",
  "ethers",
  "ethers-core 0.17.0",
+ "futures",
  "halo2_proofs 0.2.0",
  "itertools",
  "tokio",

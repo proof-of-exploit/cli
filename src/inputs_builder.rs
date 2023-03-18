@@ -11,6 +11,8 @@ pub use bus_mapping::{
 use halo2_proofs::halo2curves::bn256::Fr;
 use zkevm_circuits::witness::block_convert;
 
+use futures::future;
+
 use crate::types::zkevm_types::*;
 use crate::{anvil::AnvilClient, error::Error};
 
@@ -126,19 +128,18 @@ impl BuilderClient {
         let (block, traces) = self.get_block_traces(block_number).await?;
 
         // fetch up to 256 blocks
-        let mut n_blocks = std::cmp::min(256, block_number);
-        let mut next_hash = block.parent_hash;
-        let mut prev_state_root: Option<Word> = None;
-        let mut history_hashes = vec![Word::default(); n_blocks as usize];
-        while n_blocks > 0 {
-            n_blocks -= 1;
+        let n_blocks = std::cmp::min(256, block_number);
+        let mut futures = Vec::new();
+        for i in 1..n_blocks {
+            let header_future = self.anvil.block_by_number(block_number - i);
+            futures.push(header_future);
+        }
 
-            // TODO: consider replacing it with `eth_getHeaderByHash`, it's faster
-            let header = self
-                .anvil
-                .block_by_hash(next_hash)
-                .await?
-                .expect("parent block not found");
+        let mut prev_state_root: Option<Word> = None;
+        let mut history_hashes = Vec::new();
+        let results = future::join_all(futures).await;
+        for result in results {
+            let header = result?.expect("parent block not found");
 
             // set the previous state root
             if prev_state_root.is_none() {
@@ -149,10 +150,7 @@ impl BuilderClient {
             let block_hash = header
                 .hash
                 .ok_or(Error::InternalError("Incomplete block"))?;
-            history_hashes[n_blocks] = h256_to_u256(block_hash);
-
-            // continue
-            next_hash = header.parent_hash;
+            history_hashes.push(h256_to_u256(block_hash));
         }
 
         Ok((

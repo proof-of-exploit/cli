@@ -19,4 +19,5 @@ itertools = "0.10"
 
 # misc
 tokio = { version = "1.13", features = ["macros"] }
+futures = { version = "0.3.*" }
 dotenv = "0.15.0"
