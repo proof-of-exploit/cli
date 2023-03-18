@@ -157,6 +157,46 @@ impl<A: Conversion<Z>, Z> Conversion<zkevm_types::Block<Z>> for anvil_types::Blo
     }
 }
 
+impl Conversion<zkevm_types::TransactionReceipt> for anvil_types::TransactionReceipt {
+    fn to_zkevm_type(&self) -> zkevm_types::TransactionReceipt {
+        zkevm_types_2::TransactionReceipt {
+            transaction_hash: self.transaction_hash.to_zkevm_type(),
+            transaction_index: self.transaction_index.to_zkevm_type(),
+            block_hash: convert_option(self.block_hash),
+            block_number: convert_option(self.block_number),
+            from: self.from.to_zkevm_type(),
+            to: convert_option(self.to),
+            cumulative_gas_used: self.cumulative_gas_used.to_zkevm_type(),
+            gas_used: convert_option(self.gas_used),
+            contract_address: convert_option(self.contract_address),
+            logs: self.logs.iter().map(|b| b.to_zkevm_type()).collect(),
+            status: convert_option(self.status),
+            root: convert_option(self.root),
+            logs_bloom: self.logs_bloom.to_zkevm_type(),
+            transaction_type: convert_option(self.transaction_type),
+            effective_gas_price: convert_option(self.effective_gas_price),
+        }
+    }
+}
+
+impl Conversion<zkevm_types::Log> for anvil_types::Log {
+    fn to_zkevm_type(&self) -> zkevm_types::Log {
+        zkevm_types::Log {
+            address: self.address.to_zkevm_type(),
+            topics: self.topics.iter().map(|b| b.to_zkevm_type()).collect(),
+            data: self.data.to_zkevm_type(),
+            block_hash: convert_option(self.block_hash),
+            block_number: convert_option(self.block_number),
+            transaction_hash: convert_option(self.transaction_hash),
+            transaction_index: convert_option(self.transaction_index),
+            log_index: convert_option(self.log_index),
+            transaction_log_index: convert_option(self.transaction_log_index),
+            log_type: self.log_type.clone(),
+            removed: self.removed,
+        }
+    }
+}
+
 impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
     fn to_zkevm_type(&self) -> zkevm_types::GethExecTrace {
         if let ethers::types::GethTrace::Known(anvil_trace_frame) = self.to_owned() {

@@ -44,6 +44,22 @@ impl AnvilClient {
         Ok(self.eth_api.block_number()?.as_usize())
     }
 
+    pub async fn block_by_number(
+        &self,
+        block_number: usize,
+    ) -> Result<Option<zkevm_types::EthBlockHeader>, Error> {
+        match self
+            .eth_api
+            .block_by_number(anvil_types::BlockNumber::Number(anvil_types::U64::from(
+                block_number,
+            )))
+            .await?
+        {
+            Some(block) => Ok(Some(block.to_zkevm_type())),
+            None => Ok(None),
+        }
+    }
+
     pub async fn block_by_number_full(
         &self,
         block_number: usize,
@@ -70,6 +86,20 @@ impl AnvilClient {
             .await?
         {
             Some(tx) => Ok(Some(tx.to_zkevm_type())),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn transaction_receipt(
+        &self,
+        hash: zkevm_types::H256,
+    ) -> Result<Option<zkevm_types::TransactionReceipt>, Error> {
+        match self
+            .eth_api
+            .transaction_receipt(hash.to_anvil_type())
+            .await?
+        {
+            Some(rc) => Ok(Some(rc.to_zkevm_type())),
             None => Ok(None),
         }
     }
@@ -179,8 +209,8 @@ impl AnvilClient {
 
     pub async fn wait_for_transaction(&self, hash: zkevm_types::Hash) -> Result<(), Error> {
         loop {
-            let tx = self.transaction_by_hash(hash).await.unwrap().unwrap();
-            if tx.block_number.is_some() {
+            let rc = self.transaction_receipt(hash).await.unwrap();
+            if rc.is_some() {
                 return Ok(());
             }
             sleep(Duration::from_secs(1))
