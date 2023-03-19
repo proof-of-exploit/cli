@@ -79,13 +79,14 @@ impl Node {
         if proof.len() > 1 {
             let mut child_proof = proof;
             child_proof.remove(0);
-            // TODO recursively call method of child node
 
             return match *self.data.clone() {
                 NodeData::Extension { key, mut node } => node.load_proof(key, value_, child_proof),
                 NodeData::Branch(arr) => {
                     for _child in arr {
-                        if let Some(mut child) = _child {
+                        // find the appropriate child node and call load_proof on it
+                        let next_hash = H256::from(keccak256(child_proof[0].clone()));
+                        if let Some(mut child) = _child && child.hash == next_hash {
                             child.load_proof(key_.clone(), value_.clone(), child_proof.clone())?;
                         }
                     }
@@ -288,13 +289,13 @@ mod tests {
         )
         .unwrap();
 
-        println!("node {:#?}", node);
-
         assert_eq!(
             hex::encode(node.hash),
             "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
         );
         assert_eq!(node.data, Box::new(NodeData::Unknown));
+
+        println!("node {:#?}", node);
         // assert!(false);
     }
 
@@ -319,8 +320,6 @@ mod tests {
         )
         .unwrap();
 
-        println!("node {:#?}", node);
-
         assert_eq!(
             hex::encode(node.hash),
             "1c2e599f5f2a6cd75de40aada2a11971863dabd7a7378f1a3b268856a95829ba"
@@ -335,11 +334,72 @@ mod tests {
             })
         );
 
+        println!("node {:#?}", node);
         // assert!(false);
     }
 
-    // #[test]
-    // pub fn test_node_new_two_element_1() {}
+    #[test]
+    pub fn test_node_new_two_element_1() {
+        let mut node = Node::new(
+            "0x45e335095c8915edb03eb2dc964ad3abff45427cc3da4925a96aba38b3fe196c"
+                .parse()
+                .unwrap(),
+        );
+
+        node.load_proof(
+            "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(0))
+                .parse()
+                .unwrap(),
+            "0x09".parse().unwrap(),
+            vec![
+                "0xf851a0e97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e8080808080808080808080a09487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee5043280808080"
+                    .parse()
+                    .unwrap(),
+                "0xe2a0336b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db009"
+                    .parse()
+                    .unwrap(),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(
+            hex::encode(node.hash),
+            "45e335095c8915edb03eb2dc964ad3abff45427cc3da4925a96aba38b3fe196c"
+        );
+        assert_eq!(
+            node.data,
+            Box::new(NodeData::Branch([
+                Some(Node::new(
+                    "0xe97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e"
+                        .parse()
+                        .unwrap(),
+                )),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(Node::new(
+                    "0x9487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee50432"
+                        .parse()
+                        .unwrap(),
+                )),
+                None,
+                None,
+                None,
+                None,
+            ]))
+        );
+
+        println!("node {:#?}", node);
+        // assert!(false);
+    }
 
     // #[test]
     // pub fn test_node_new_three_element_extension_1() {}
