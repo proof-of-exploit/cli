@@ -1,2 +1,2 @@
-pub mod key;
+pub mod nibbles;
 pub mod node;

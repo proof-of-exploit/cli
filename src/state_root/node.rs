@@ -1,11 +1,11 @@
 use ethers_core::utils::{hex, keccak256, rlp::Rlp};
 
+use super::nibbles::Nibbles;
 use crate::{
     error::Error,
     types::zkevm_types::{Bytes, H256},
 };
 
-use super::key::Key;
 use std::fmt;
 
 const EMPTY_ROOT_STR: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
@@ -30,7 +30,7 @@ impl Node {
     // existing leaf in the trie
     pub fn load_proof(
         &mut self,
-        key_: Bytes,
+        key_: Nibbles,
         value_: Bytes,
         proof: Vec<Bytes>,
     ) -> Result<(), Error> {
@@ -79,15 +79,20 @@ impl Node {
         if proof.len() > 1 {
             let mut child_proof = proof;
             child_proof.remove(0);
-
             return match *self.data.clone() {
-                NodeData::Extension { key, mut node } => node.load_proof(key, value_, child_proof),
+                NodeData::Extension { key, mut node } => {
+                    let key_extension_lenth = key.len();
+                    let key_next = key_.slice(key_extension_lenth)?;
+                    node.load_proof(key_next, value_, child_proof)
+                }
                 NodeData::Branch(arr) => {
                     for _child in arr {
                         // find the appropriate child node and call load_proof on it
-                        let next_hash = H256::from(keccak256(child_proof[0].clone()));
-                        if let Some(mut child) = _child && child.hash == next_hash {
-                            child.load_proof(key_.clone(), value_.clone(), child_proof.clone())?;
+                        let hash_next = H256::from(keccak256(child_proof[0].clone()));
+                        if let Some(mut child) = _child && child.hash == hash_next {
+                            // skip one nibble in the key
+                            let key_next = key_.slice(1)?;
+                            child.load_proof(key_next, value_.clone(), child_proof.clone())?;
                         }
                     }
                     Ok(())
@@ -111,9 +116,9 @@ impl Node {
 #[derive(Clone, PartialEq)]
 pub enum NodeData {
     Unknown,
-    Leaf { key: Bytes, value: Bytes },
+    Leaf { key: Nibbles, value: Bytes },
     Branch([Option<Node>; 17]),
-    Extension { key: Bytes, node: Node },
+    Extension { key: Nibbles, node: Node },
 }
 
 impl NodeData {
@@ -125,19 +130,16 @@ impl NodeData {
                 let val_0 = Bytes::from(rlp.at(0)?.data()?.to_owned());
                 let val_1 = Bytes::from(rlp.at(1)?.data()?.to_owned());
 
-                let (key, terminator) = Key::from_bytes_with_prefix(val_0.clone());
+                let (key, terminator) = Nibbles::from_encoded_path(val_0.clone())?;
                 if terminator {
-                    NodeData::Leaf {
-                        key: key.without_prefix(),
-                        value: val_1,
-                    }
+                    NodeData::Leaf { key, value: val_1 }
                 } else {
                     let hash = rlp.at(1)?.data()?.to_owned();
                     if hash.len() != 32 {
                         return Err(Error::InternalError("invalid hash length in Extension"));
                     }
                     NodeData::Extension {
-                        key: key.without_prefix(),
+                        key,
                         node: Node::new(H256::from_slice(hash.as_slice())),
                     }
                 }
@@ -175,8 +177,8 @@ impl fmt::Debug for NodeData {
         let val = match self {
             NodeData::Unknown => format!("Unknown"),
             NodeData::Leaf { key, value } => format!(
-                "Leaf(key={:?}, value={:?})",
-                hex::encode(key.to_owned()),
+                "Leaf(key={}, value={:?})",
+                key,
                 hex::encode(value.to_owned())
             ),
             NodeData::Branch(branch) => format!(
@@ -194,7 +196,7 @@ impl fmt::Debug for NodeData {
                     .join(", ")
             ),
             NodeData::Extension { key, node } => {
-                format!("Extension(key={:?}, node={:?})", key, node)
+                format!("Extension(key={}, node={:?})", key, node)
             }
         };
         write!(f, "NodeData::{}", val)
@@ -204,6 +206,8 @@ impl fmt::Debug for NodeData {
 #[cfg(test)]
 mod tests {
     use ethers::utils::hex;
+
+    use crate::state_root::nibbles::Nibbles;
 
     use super::{Node, NodeData};
 
@@ -221,9 +225,11 @@ mod tests {
         assert_eq!(
             node_data,
             NodeData::Leaf {
-                key: "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
-                    .parse()
-                    .unwrap(),
+                key: Nibbles::from_raw_path(
+                    "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
+                        .parse()
+                        .unwrap()
+                ),
                 value: "0x08".parse().unwrap(),
             }
         );
@@ -281,9 +287,11 @@ mod tests {
         );
 
         node.load_proof(
-            "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563" // hash(pad(0))
-                .parse()
-                .unwrap(),
+            Nibbles::from_raw_path(
+                "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563" // hash(pad(0))
+                    .parse()
+                    .unwrap(),
+            ),
             "0x00".parse().unwrap(),
             vec![],
         )
@@ -308,9 +316,11 @@ mod tests {
         );
 
         node.load_proof(
-            "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563" // hash(pad(0))
-                .parse()
-                .unwrap(),
+            Nibbles::from_raw_path(
+                "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563" // hash(pad(0))
+                    .parse()
+                    .unwrap(),
+            ),
             "0x08".parse().unwrap(),
             vec![
                 "0xe3a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e56308"
@@ -327,9 +337,11 @@ mod tests {
         assert_eq!(
             node.data,
             Box::new(NodeData::Leaf {
-                key: "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
-                    .parse()
-                    .unwrap(),
+                key: Nibbles::from_raw_path(
+                    "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
+                        .parse()
+                        .unwrap()
+                ),
                 value: "0x08".parse().unwrap(),
             })
         );
@@ -347,9 +359,9 @@ mod tests {
         );
 
         node.load_proof(
-            "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(0))
+            Nibbles::from_raw_path(   "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(0))
                 .parse()
-                .unwrap(),
+                .unwrap()),
             "0x09".parse().unwrap(),
             vec![
                 "0xf851a0e97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e8080808080808080808080a09487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee5043280808080"
@@ -401,6 +413,35 @@ mod tests {
         // assert!(false);
     }
 
-    // #[test]
-    // pub fn test_node_new_three_element_extension_1() {}
+    #[test]
+    pub fn test_node_new_three_element_extension_1() {
+        let mut node = Node::new(
+            "0x83c3e173e44cf782dfc14c550c322661c26728efda96977ed472c71bb94e8692"
+                .parse()
+                .unwrap(),
+        );
+        println!("prr");
+        node.load_proof(
+            Nibbles::from_raw_path("0xc65a7bb8d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a8" // hash(pad(0))
+                .parse()
+                .unwrap()),
+            "0x14".parse().unwrap(),
+            vec![
+                "0xf851a0c2af0751112c3efa2873802b452283ab1e2c60fde148a2f9e482ed03b8947e158080808080808080808080a0b3e6ad355d7116d0b4173e75e4c760082c8870e3b5b746cfadfea7101e834cc280808080"
+                    .parse()
+                    .unwrap(),
+                "0xe583165a7ba0e46db0426b9d34c7b2df7baf0480777946e6b5b74a0572592b0229a4edaed944"
+                    .parse()
+                    .unwrap(),
+                "0xf85180808080808080a00c104f2019963f0df89d54742b14cd0ad7418cb208e9bc69bf80cb296926ffe9808080a04efd8a29c04796b9c9b13af2740864e48851a89ef4292575ab5f69b3a52c06c08080808080"
+                    .parse()
+                    .unwrap(),
+                "0xdf9d38d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a814"
+                    .parse()
+                    .unwrap(),
+            ]).unwrap();
+
+        println!("node {:#?}", node);
+        assert!(false);
+    }
 }
