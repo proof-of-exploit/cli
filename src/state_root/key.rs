@@ -15,7 +15,7 @@ impl Key {
         let mut vec = raw.to_vec();
         let first_nibble = vec[0] >> 4;
         if first_nibble % 2 != 0 {
-            vec[0] = 15 & vec[0]; // remove first nibble
+            vec[0] = 0xF & vec[0]; // remove first nibble
         } else {
             vec.remove(0);
         }
@@ -59,11 +59,34 @@ impl Key {
         let val = self.without_prefix()[index >> 1];
         Ok(if index & 1 == 0 { val >> 4 } else { val & 0x0F })
     }
+
+    pub fn without_prefix_skip_nibbles(&self, mut nibbles: usize) -> Result<Bytes, Error> {
+        if nibbles > self.nibble_len() {
+            return Err(Error::InternalError("Cannot skip more than nibbles"));
+        }
+
+        let mut vec = self.without_prefix().to_vec();
+        if vec[0] & 0xF0 == 0 {
+            // if 4 bits are zero, it's not considered as nibble so adjust that
+            nibbles += 1;
+        }
+
+        let bytes_to_remove = nibbles >> 1;
+        for _i in 0..bytes_to_remove {
+            vec.remove(0);
+        }
+        if nibbles % 2 != 0 {
+            vec[0] = 0xF & vec[0]; // remove first nibble
+        }
+
+        Ok(Bytes::from(vec))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Key;
+    use crate::types::zkevm_types::Bytes;
     use ethers_core::utils::hex;
 
     #[test]
@@ -230,5 +253,46 @@ mod tests {
         assert_eq!(key.get_nibble(4).unwrap(), 0);
         assert_eq!(key.get_nibble(5).unwrap(), 0);
         assert!(key.get_nibble(7).is_err());
+    }
+
+    #[test]
+    pub fn test_ignore_starting_zeros_1() {
+        let key = Key::from_bytes_without_prefix(Bytes::from(vec![0, 0, 0, 0, 0x12, 0x34, 0]));
+        assert_eq!(key.without_prefix().len(), 3);
+        assert_eq!(hex::encode(key.without_prefix()), "123400");
+    }
+
+    #[test]
+    pub fn test_skip_nibbles_1() {
+        let key = Key::from_bytes_without_prefix("0000123400".parse().unwrap());
+
+        assert_eq!(
+            key.without_prefix_skip_nibbles(0).unwrap(),
+            "123400".parse::<Bytes>().unwrap()
+        );
+        assert_eq!(
+            key.without_prefix_skip_nibbles(1).unwrap(),
+            "023400".parse::<Bytes>().unwrap()
+        );
+        assert_eq!(
+            key.without_prefix_skip_nibbles(2).unwrap(),
+            "3400".parse::<Bytes>().unwrap()
+        );
+        assert_eq!(
+            key.without_prefix_skip_nibbles(3).unwrap(),
+            "0400".parse::<Bytes>().unwrap()
+        );
+        assert_eq!(
+            key.without_prefix_skip_nibbles(4).unwrap(),
+            "00".parse::<Bytes>().unwrap()
+        );
+        assert_eq!(
+            key.without_prefix_skip_nibbles(5).unwrap(),
+            "00".parse::<Bytes>().unwrap()
+        );
+        assert_eq!(
+            key.without_prefix_skip_nibbles(6).unwrap(),
+            "".parse::<Bytes>().unwrap()
+        );
     }
 }
