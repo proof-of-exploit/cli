@@ -8,6 +8,9 @@ use crate::{
 use super::key::Key;
 use std::fmt;
 
+const EMPTY_ROOT_STR: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
+const EMPTY_VALUE_STR: &str = "0x00";
+
 #[derive(Clone, PartialEq)]
 pub struct Node {
     hash: H256,
@@ -25,29 +28,74 @@ impl Node {
     }
 
     // existing leaf in the trie
-    pub fn load_proof(&mut self, key: Bytes, value: Bytes, proof: Vec<Bytes>) -> Result<(), Error> {
+    pub fn load_proof(
+        &mut self,
+        key_: Bytes,
+        value_: Bytes,
+        proof: Vec<Bytes>,
+    ) -> Result<(), Error> {
         if proof.len() == 0 {
-            // TODO: this might be zero if root hash is keccak256(rlp('0x'))
-            return Err(Error::InternalError("Empty proof not allowed"));
+            if self.hash != EMPTY_ROOT_STR.parse().unwrap() {
+                // enforce proof to be empt
+                return Err(Error::InternalError(
+                    "Root is not empty, hence some proof is needed",
+                ));
+            } else if value_ != EMPTY_VALUE_STR.parse::<Bytes>().unwrap() {
+                // enforce the values to be empty, since it is empty root
+                return Err(Error::InternalError(
+                    "Value should be empty, since root is empty",
+                ));
+            } else {
+                return Ok(());
+            }
         }
         // check if the proof's first layer hashes to the root
         // use first element in proof to layout first layer
-        let entry = &proof[0].clone();
+        let entry = proof[0].clone();
 
-        let hash = H256::from(keccak256(entry));
+        let hash = H256::from(keccak256(entry.clone()));
         if hash != self.hash {
             return Err(Error::InternalError(
                 "proof entry hash does not match the node root",
             ));
         }
 
+        let val = NodeData::new(entry)?;
+        if *self.data == NodeData::Unknown {
+            // we found the place where node can be placed
+            *self.data = val.clone();
+
+            // if this is a leaf node, enforce key and value to be proper
+            if let NodeData::Leaf { key, value } = val {
+                if key != key_ {
+                    return Err(Error::InternalError("key in leaf does not match input"));
+                }
+                if value != value_ {
+                    return Err(Error::InternalError("value in leaf does not match input"));
+                }
+            }
+        }
+
         if proof.len() > 1 {
             let mut child_proof = proof;
             child_proof.remove(0);
             // TODO recursively call method of child node
+
+            return match *self.data.clone() {
+                NodeData::Extension { key, mut node } => node.load_proof(key, value_, child_proof),
+                NodeData::Branch(arr) => {
+                    for _child in arr {
+                        if let Some(mut child) = _child {
+                            child.load_proof(key_.clone(), value_.clone(), child_proof.clone())?;
+                        }
+                    }
+                    Ok(())
+                }
+                _ => Err(Error::InternalError("this should not happen in load_proof")),
+            };
         }
 
-        todo!()
+        Ok(())
     }
 
     pub fn get_key(&self, key: Bytes) -> Bytes {
@@ -154,6 +202,8 @@ impl fmt::Debug for NodeData {
 
 #[cfg(test)]
 mod tests {
+    use ethers::utils::hex;
+
     use super::{Node, NodeData};
 
     #[test]
@@ -220,4 +270,77 @@ mod tests {
             ])
         );
     }
+
+    #[test]
+    pub fn test_node_new_empty_1() {
+        let mut node = Node::new(
+            "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+                .parse()
+                .unwrap(),
+        );
+
+        node.load_proof(
+            "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563" // hash(pad(0))
+                .parse()
+                .unwrap(),
+            "0x00".parse().unwrap(),
+            vec![],
+        )
+        .unwrap();
+
+        println!("node {:#?}", node);
+
+        assert_eq!(
+            hex::encode(node.hash),
+            "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+        );
+        assert_eq!(node.data, Box::new(NodeData::Unknown));
+        // assert!(false);
+    }
+
+    #[test]
+    pub fn test_node_new_one_element_1() {
+        let mut node = Node::new(
+            "0x1c2e599f5f2a6cd75de40aada2a11971863dabd7a7378f1a3b268856a95829ba"
+                .parse()
+                .unwrap(),
+        );
+
+        node.load_proof(
+            "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563" // hash(pad(0))
+                .parse()
+                .unwrap(),
+            "0x08".parse().unwrap(),
+            vec![
+                "0xe3a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e56308"
+                    .parse()
+                    .unwrap(),
+            ],
+        )
+        .unwrap();
+
+        println!("node {:#?}", node);
+
+        assert_eq!(
+            hex::encode(node.hash),
+            "1c2e599f5f2a6cd75de40aada2a11971863dabd7a7378f1a3b268856a95829ba"
+        );
+        assert_eq!(
+            node.data,
+            Box::new(NodeData::Leaf {
+                key: "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
+                    .parse()
+                    .unwrap(),
+                value: "0x08".parse().unwrap(),
+            })
+        );
+
+        // assert!(false);
+    }
+
+    // #[test]
+    // pub fn test_node_new_two_element_1() {}
+
+    // #[test]
+    // pub fn test_node_new_three_element_extension_1() {}
 }
