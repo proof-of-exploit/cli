@@ -41,6 +41,46 @@ impl Trie {
         Ok(())
     }
 
+    pub fn traverse_path(&self, path: Nibbles) -> Result<Bytes, Error> {
+        if self.root.is_none() {
+            return Err(Error::InternalError("root not set"));
+        }
+
+        let mut hash_current = self.root.unwrap();
+        let mut i = 0;
+        let u4_vec = path.to_u4_vec();
+        loop {
+            let node_data = self
+                .nodes
+                .get(&hash_current)
+                .ok_or_else(|| Error::InternalError("node not present, please add a proof"))?;
+
+            match node_data {
+                NodeData::Leaf { key, value } => {
+                    if key.to_u4_vec() == path.slice(i)?.to_u4_vec() {
+                        return Ok(value.to_owned());
+                    } else {
+                        return Err(Error::InternalError("path mismatch"));
+                    }
+                }
+                NodeData::Branch(arr) => {
+                    let nibble = u4_vec[i] as usize;
+                    if arr[nibble].is_some() {
+                        hash_current = arr[nibble as usize].unwrap();
+                    } else {
+                        // key value is not in the root, it is resolving to empty
+                        return Ok(EMPTY_VALUE_STR.parse().unwrap());
+                    }
+                    i += 1;
+                }
+                NodeData::Extension { key, node } => {
+                    hash_current = node.to_owned();
+                    i += key.len();
+                }
+            }
+        }
+    }
+
     pub fn load_proof(
         &mut self,
         key_: Nibbles,
@@ -215,7 +255,7 @@ impl fmt::Debug for NodeData {
 mod tests {
     use ethers::utils::hex;
 
-    use super::{Nibbles, NodeData, Trie};
+    use super::{Bytes, Nibbles, NodeData, Trie};
 
     #[test]
     pub fn test_node_data_new_leaf_node_1() {
@@ -661,5 +701,126 @@ mod tests {
 
         println!("trie {:#?}", trie);
         // assert!(false);
+    }
+
+    #[test]
+    pub fn test_trie_traverse_path_1() {
+        let mut trie = Trie::new();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0x405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace", // hash(pad(2))
+            ),
+            "0x04".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a0305787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace04".parse().unwrap()
+            ],
+         ).unwrap();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0xc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b",
+            ),
+            "0x09".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a032575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b09".parse().unwrap()
+            ],
+        ).unwrap();
+
+        let val = trie
+            .traverse_path(Nibbles::from_raw_path_str(
+                "0x405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace", // hash(pad(2))
+            ))
+            .unwrap();
+        assert_eq!(hex::encode(val), "04");
+
+        let val2 = trie
+            .traverse_path(Nibbles::from_raw_path_str(
+                "0xc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b", // hash(pad(2))
+            ))
+            .unwrap();
+        assert_eq!(hex::encode(val2), "09");
+    }
+
+    #[test]
+    pub fn test_trie_traverse_path_2() {
+        let mut trie = Trie::new();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0xc65a7bb8d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a8" // hash(pad(5))
+              ),
+            "0x14".parse().unwrap(),
+            vec![
+                "0xf851a0c2af0751112c3efa2873802b452283ab1e2c60fde148a2f9e482ed03b8947e158080808080808080808080a0b3e6ad355d7116d0b4173e75e4c760082c8870e3b5b746cfadfea7101e834cc280808080"
+                    .parse()
+                    .unwrap(),
+                "0xe583165a7ba0e46db0426b9d34c7b2df7baf0480777946e6b5b74a0572592b0229a4edaed944"
+                    .parse()
+                    .unwrap(),
+                "0xf85180808080808080a00c104f2019963f0df89d54742b14cd0ad7418cb208e9bc69bf80cb296926ffe9808080a04efd8a29c04796b9c9b13af2740864e48851a89ef4292575ab5f69b3a52c06c08080808080"
+                    .parse()
+                    .unwrap(),
+                "0xdf9d38d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a814"
+                    .parse()
+                    .unwrap(),
+            ],
+        )
+        .unwrap();
+
+        let val = trie
+            .traverse_path(Nibbles::from_raw_path_str(
+                "0xc65a7bb8d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a8", // hash(pad(5))
+            ))
+            .unwrap();
+        assert_eq!(hex::encode(val), "14");
+    }
+
+    #[test]
+    pub fn test_trie_traverse_path_3_value_not_proved() {
+        let mut trie = Trie::new();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0x405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace", // hash(pad(2))
+            ),
+            "0x04".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a0305787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace04".parse().unwrap()
+            ],
+         ).unwrap();
+
+        assert!(trie
+            .traverse_path(Nibbles::from_raw_path_str(
+                "0xc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b",
+            ))
+            .is_err());
+    }
+
+    #[test]
+    pub fn test_trie_traverse_path_4_empty_value() {
+        let mut trie = Trie::new();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0x405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace", // hash(pad(2))
+            ),
+            "0x04".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a0305787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace04".parse().unwrap()
+            ],
+         ).unwrap();
+
+        assert_eq!(
+            trie.traverse_path(Nibbles::from_raw_path_str(
+                "0x17fa14b0d73aa6a26d6b8720c1c84b50984f5c188ee1c113d2361e430f1b6764", // hash(pad(1234))
+            ))
+            .unwrap(),
+            "0x00".parse::<Bytes>().unwrap(),
+        );
     }
 }
