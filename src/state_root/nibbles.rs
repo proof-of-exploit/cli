@@ -17,6 +17,14 @@ fn u8_to_u4_vec(u8_vec: Vec<u8>) -> Vec<u8> {
 }
 
 impl Nibbles {
+    pub fn from_raw_path_str(str: &str) -> Self {
+        Self::from_raw_path(str.parse::<Bytes>().unwrap())
+    }
+
+    pub fn from_encoded_path_str(str: &str) -> Result<Self, Error> {
+        Self::from_encoded_path(str.parse::<Bytes>().unwrap())
+    }
+
     pub fn from_raw_path(bytes: Bytes) -> Self {
         Self(u8_to_u4_vec(bytes.to_vec()))
     }

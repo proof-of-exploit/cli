@@ -14,16 +14,31 @@ const EMPTY_VALUE_STR: &str = "0x00";
 
 #[derive(Clone, Debug, EthDisplay, PartialEq)]
 pub struct Trie {
-    root: H256,
+    root: Option<H256>,
     nodes: HashMap<H256, NodeData>,
 }
 
 impl Trie {
-    pub fn new(root: H256) -> Self {
+    pub fn new() -> Self {
         Trie {
-            root,
+            root: None,
             nodes: HashMap::new(),
         }
+    }
+
+    pub fn from_root(root: H256) -> Self {
+        Trie {
+            root: Some(root),
+            nodes: HashMap::new(),
+        }
+    }
+
+    pub fn set_root(&mut self, root: H256) -> Result<(), Error> {
+        if self.root.is_some() {
+            return Err(Error::InternalError("root already present"));
+        }
+        self.root = Some(root);
+        Ok(())
     }
 
     pub fn load_proof(
@@ -33,22 +48,29 @@ impl Trie {
         proof: Vec<Bytes>,
     ) -> Result<(), Error> {
         if proof.len() == 0 {
-            if self.root != EMPTY_ROOT_STR.parse().unwrap() {
-                // enforce proof to be empt
-                return Err(Error::InternalError(
-                    "Root is not empty, hence some proof is needed",
-                ));
-            } else if value_ != EMPTY_VALUE_STR.parse::<Bytes>().unwrap() {
-                // enforce the values to be empty, since it is empty root
-                return Err(Error::InternalError(
-                    "Value should be empty, since root is empty",
-                ));
-            } else {
-                return Ok(());
+            if self.root.is_some() {
+                if self.root.unwrap() != EMPTY_ROOT_STR.parse().unwrap() {
+                    // enforce proof to be empt
+                    return Err(Error::InternalError(
+                        "Root is not empty, hence some proof is needed",
+                    ));
+                } else if value_ != EMPTY_VALUE_STR.parse::<Bytes>().unwrap() {
+                    // enforce the values to be empty, since it is empty root
+                    return Err(Error::InternalError(
+                        "Value should be empty, since root is empty",
+                    ));
+                }
             }
+            return Ok(());
         }
 
-        let mut root = self.root;
+        // proof.len() > 0
+        if self.root.is_none() {
+            let proof_root = proof[0].clone();
+            self.root = Some(H256::from(keccak256(proof_root)));
+        }
+
+        let mut root = self.root.unwrap();
         let mut key_current = key_.clone();
 
         for (i, proof_entry) in proof.iter().enumerate() {
@@ -104,6 +126,11 @@ impl Trie {
         }
 
         Ok(())
+    }
+
+    // useful for reducing verticle length of testing code
+    pub fn nodes_get(&self, hash: &str) -> Option<&NodeData> {
+        self.nodes.get(&hash.parse().unwrap())
     }
 }
 
@@ -190,7 +217,7 @@ impl fmt::Debug for NodeData {
 mod tests {
     use ethers::utils::hex;
 
-    use super::{Nibbles, NodeData, Trie, H256};
+    use super::{Nibbles, NodeData, Trie};
 
     #[test]
     pub fn test_node_data_new_leaf_node_1() {
@@ -283,7 +310,7 @@ mod tests {
 
     #[test]
     pub fn test_trie_new_empty_1() {
-        let mut trie = Trie::new(
+        let mut trie = Trie::from_root(
             "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
                 .parse()
                 .unwrap(),
@@ -301,10 +328,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            hex::encode(trie.root),
+            hex::encode(trie.root.unwrap()),
             "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
         );
-        assert!(trie.nodes.get(&trie.root).is_none());
+        assert!(trie.nodes.get(&trie.root.unwrap()).is_none());
 
         println!("trie {:#?}", trie);
         // assert!(false);
@@ -312,11 +339,7 @@ mod tests {
 
     #[test]
     pub fn test_trie_new_one_element_1() {
-        let mut trie = Trie::new(
-            "0x1c2e599f5f2a6cd75de40aada2a11971863dabd7a7378f1a3b268856a95829ba"
-                .parse()
-                .unwrap(),
-        );
+        let mut trie = Trie::new();
 
         trie.load_proof(
             Nibbles::from_raw_path(
@@ -334,16 +357,14 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            hex::encode(trie.root),
+            hex::encode(trie.root.unwrap()),
             "1c2e599f5f2a6cd75de40aada2a11971863dabd7a7378f1a3b268856a95829ba"
         );
         assert_eq!(
-            trie.nodes.get(&trie.root).unwrap().to_owned(),
+            trie.nodes.get(&trie.root.unwrap()).unwrap().to_owned(),
             NodeData::Leaf {
-                key: Nibbles::from_raw_path(
+                key: Nibbles::from_raw_path_str(
                     "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
-                        .parse()
-                        .unwrap()
                 ),
                 value: "0x08".parse().unwrap(),
             }
@@ -355,16 +376,11 @@ mod tests {
 
     #[test]
     pub fn test_trie_new_two_element_1() {
-        let mut trie = Trie::new(
-            "0x45e335095c8915edb03eb2dc964ad3abff45427cc3da4925a96aba38b3fe196c"
-                .parse()
-                .unwrap(),
-        );
+        let mut trie = Trie::new();
 
         trie.load_proof(
-            Nibbles::from_raw_path(   "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(5))
-                .parse()
-                .unwrap()),
+            Nibbles::from_raw_path_str(   "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(5))
+               ),
             "0x09".parse().unwrap(),
             vec![
                 "0xf851a0e97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e8080808080808080808080a09487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee5043280808080"
@@ -378,11 +394,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            hex::encode(trie.root),
+            hex::encode(trie.root.unwrap()),
             "45e335095c8915edb03eb2dc964ad3abff45427cc3da4925a96aba38b3fe196c"
         );
         assert_eq!(
-            trie.nodes.get(&trie.root).unwrap().to_owned(),
+            trie.nodes.get(&trie.root.unwrap()).unwrap().to_owned(),
             NodeData::Branch([
                 Some(
                     "0xe97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e"
@@ -412,31 +428,19 @@ mod tests {
             ])
         );
         assert_eq!(
-            trie.nodes
-                .get(
-                    &"0xe97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e"
-                        .parse::<H256>()
-                        .unwrap()
-                )
+            trie.nodes_get("0xe97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e")
                 .unwrap()
                 .to_owned(),
             NodeData::Leaf {
-                key: Nibbles::from_encoded_path(
+                key: Nibbles::from_encoded_path_str(
                     "0x336b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0"
-                        .parse()
-                        .unwrap()
                 )
                 .unwrap(),
                 value: "0x09".parse().unwrap(),
             }
         );
         assert!(trie
-            .nodes
-            .get(
-                &"0x9487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee50432"
-                    .parse::<H256>()
-                    .unwrap()
-            )
+            .nodes_get("0x9487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee50432")
             .is_none());
 
         println!("trie {:#?}", trie);
@@ -445,17 +449,12 @@ mod tests {
 
     #[test]
     pub fn test_trie_new_three_element_1() {
-        let mut trie = Trie::new(
-            "0x83c3e173e44cf782dfc14c550c322661c26728efda96977ed472c71bb94e8692"
-                .parse()
-                .unwrap(),
-        );
+        let mut trie = Trie::new();
 
         trie.load_proof(
-            Nibbles::from_raw_path(
+            Nibbles::from_raw_path_str(
                 "0xc65a7bb8d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a8" // hash(pad(5))
-                .parse()
-                .unwrap()),
+              ),
             "0x14".parse().unwrap(),
             vec![
                 "0xf851a0c2af0751112c3efa2873802b452283ab1e2c60fde148a2f9e482ed03b8947e158080808080808080808080a0b3e6ad355d7116d0b4173e75e4c760082c8870e3b5b746cfadfea7101e834cc280808080"
@@ -475,11 +474,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            hex::encode(trie.root),
+            hex::encode(trie.root.unwrap()),
             "83c3e173e44cf782dfc14c550c322661c26728efda96977ed472c71bb94e8692"
         );
         assert_eq!(
-            trie.nodes.get(&trie.root).unwrap().to_owned(),
+            trie.nodes.get(&trie.root.unwrap()).unwrap().to_owned(),
             NodeData::Branch([
                 Some(
                     "0xc2af0751112c3efa2873802b452283ab1e2c60fde148a2f9e482ed03b8947e15"
@@ -509,36 +508,21 @@ mod tests {
             ])
         );
         assert!(trie
-            .nodes
-            .get(
-                &"0xc2af0751112c3efa2873802b452283ab1e2c60fde148a2f9e482ed03b8947e15"
-                    .parse::<H256>()
-                    .unwrap()
-            )
+            .nodes_get("0xc2af0751112c3efa2873802b452283ab1e2c60fde148a2f9e482ed03b8947e15")
             .is_none());
         assert_eq!(
-            trie.nodes
-                .get(
-                    &"0xb3e6ad355d7116d0b4173e75e4c760082c8870e3b5b746cfadfea7101e834cc2"
-                        .parse::<H256>()
-                        .unwrap()
-                )
+            trie.nodes_get("0xb3e6ad355d7116d0b4173e75e4c760082c8870e3b5b746cfadfea7101e834cc2")
                 .unwrap()
                 .to_owned(),
             NodeData::Extension {
-                key: Nibbles::from_encoded_path("0x165a7b".parse().unwrap()).unwrap(),
+                key: Nibbles::from_encoded_path_str("0x165a7b").unwrap(),
                 node: "0xe46db0426b9d34c7b2df7baf0480777946e6b5b74a0572592b0229a4edaed944"
                     .parse()
                     .unwrap(),
             }
         );
         assert_eq!(
-            trie.nodes
-                .get(
-                    &"0xe46db0426b9d34c7b2df7baf0480777946e6b5b74a0572592b0229a4edaed944"
-                        .parse::<H256>()
-                        .unwrap()
-                )
+            trie.nodes_get("0xe46db0426b9d34c7b2df7baf0480777946e6b5b74a0572592b0229a4edaed944")
                 .unwrap()
                 .to_owned(),
             NodeData::Branch([
@@ -570,27 +554,15 @@ mod tests {
             ])
         );
         assert!(trie
-            .nodes
-            .get(
-                &"0x0c104f2019963f0df89d54742b14cd0ad7418cb208e9bc69bf80cb296926ffe9"
-                    .parse::<H256>()
-                    .unwrap()
-            )
+            .nodes_get("0x0c104f2019963f0df89d54742b14cd0ad7418cb208e9bc69bf80cb296926ffe9")
             .is_none());
         assert_eq!(
-            trie.nodes
-                .get(
-                    &"0x4efd8a29c04796b9c9b13af2740864e48851a89ef4292575ab5f69b3a52c06c0"
-                        .parse::<H256>()
-                        .unwrap()
-                )
+            trie.nodes_get("0x4efd8a29c04796b9c9b13af2740864e48851a89ef4292575ab5f69b3a52c06c0")
                 .unwrap()
                 .to_owned(),
             NodeData::Leaf {
-                key: Nibbles::from_encoded_path(
+                key: Nibbles::from_encoded_path_str(
                     "0x38d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a8"
-                        .parse()
-                        .unwrap()
                 )
                 .unwrap(),
                 value: "0x14".parse().unwrap(),
