@@ -101,8 +101,6 @@ impl Trie {
                 self.nodes.insert(hash_node_data, node_data.clone());
             }
 
-            println!("node_data {:?}", node_data);
-
             match node_data {
                 NodeData::Extension { key, node } => {
                     root = node;
@@ -379,7 +377,7 @@ mod tests {
         let mut trie = Trie::new();
 
         trie.load_proof(
-            Nibbles::from_raw_path_str(   "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(5))
+            Nibbles::from_raw_path_str("0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(5))
                ),
             "0x09".parse().unwrap(),
             vec![
@@ -566,6 +564,98 @@ mod tests {
                 )
                 .unwrap(),
                 value: "0x14".parse().unwrap(),
+            }
+        );
+
+        println!("trie {:#?}", trie);
+        // assert!(false);
+    }
+
+    #[test]
+    pub fn test_trie_load_two_proofs_1() {
+        let mut trie = Trie::new();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0x405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace", // hash(pad(2))
+            ),
+            "0x04".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a0305787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace04".parse().unwrap()
+            ],
+        ).unwrap();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0xc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b",
+            ),
+            "0x09".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a032575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b09".parse().unwrap()
+            ],
+        ).unwrap();
+
+        assert_eq!(
+            hex::encode(trie.root.unwrap()),
+            "e730900f060334776424339bad2d8fb6f53d8b2ddbf991f492d852fb119addc0"
+        );
+
+        assert_eq!(
+            trie.nodes.get(&trie.root.unwrap()).unwrap().to_owned(),
+            NodeData::Branch([
+                None,
+                None,
+                None,
+                None,
+                Some(
+                    "0x3f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc5"
+                        .parse()
+                        .unwrap()
+                ),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(
+                    "0x55037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e"
+                        .parse()
+                        .unwrap()
+                ),
+                None,
+                None,
+                None,
+                None,
+            ])
+        );
+
+        assert_eq!(
+            trie.nodes_get("0x3f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc5")
+                .unwrap()
+                .to_owned(),
+            NodeData::Leaf {
+                key: Nibbles::from_encoded_path_str(
+                    "0x305787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace"
+                )
+                .unwrap(),
+                value: "0x04".parse().unwrap(),
+            }
+        );
+
+        assert_eq!(
+            trie.nodes_get("0x55037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e")
+                .unwrap()
+                .to_owned(),
+            NodeData::Leaf {
+                key: Nibbles::from_encoded_path_str(
+                    "0x32575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b"
+                )
+                .unwrap(),
+                value: "0x09".parse().unwrap(),
             }
         );
 
