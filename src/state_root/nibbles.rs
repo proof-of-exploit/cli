@@ -1,6 +1,8 @@
 use std::fmt;
 
-use crate::{error::Error, types::zkevm_types::Bytes};
+use ethers::types::Bytes;
+
+use crate::error::Error;
 
 #[derive(Clone, PartialEq)]
 pub struct Nibbles(Vec<u8>);
@@ -28,7 +30,11 @@ impl Nibbles {
         Ok(Self(nibbles))
     }
 
-    pub fn from_encoded_path(bytes: Bytes) -> Result<(Self, bool), Error> {
+    pub fn from_encoded_path(bytes: Bytes) -> Result<Self, Error> {
+        let (val, _) = Self::from_encoded_path_with_terminator(bytes)?;
+        Ok(val)
+    }
+    pub fn from_encoded_path_with_terminator(bytes: Bytes) -> Result<(Self, bool), Error> {
         let mut u4_vec = u8_to_u4_vec(bytes.to_vec());
 
         let first = u4_vec[0];
@@ -187,7 +193,8 @@ mod tests {
     #[test]
     pub fn test_decode_path_1() {
         let (nibbles, terminator) =
-            Nibbles::from_encoded_path(vec![0x20, 0x12, 0x34, 0x56].into()).unwrap();
+            Nibbles::from_encoded_path_with_terminator(vec![0x20, 0x12, 0x34, 0x56].into())
+                .unwrap();
         assert_eq!(
             hex::encode(nibbles.to_raw_path()),
             hex::encode(vec![0x12, 0x34, 0x56])
@@ -198,7 +205,8 @@ mod tests {
     #[test]
     pub fn test_decode_path_2() {
         let (nibbles, terminator) =
-            Nibbles::from_encoded_path(vec![0x00, 0x12, 0x34, 0x56].into()).unwrap();
+            Nibbles::from_encoded_path_with_terminator(vec![0x00, 0x12, 0x34, 0x56].into())
+                .unwrap();
         assert_eq!(
             hex::encode(nibbles.to_raw_path()),
             hex::encode(Bytes::from(vec![0x12, 0x34, 0x56]))
@@ -209,7 +217,7 @@ mod tests {
     #[test]
     pub fn test_decode_path_3() {
         let (nibbles, terminator) =
-            Nibbles::from_encoded_path(vec![0x12, 0x34, 0x56].into()).unwrap();
+            Nibbles::from_encoded_path_with_terminator(vec![0x12, 0x34, 0x56].into()).unwrap();
         assert_eq!(
             hex::encode(nibbles.to_raw_path()),
             hex::encode(Bytes::from(vec![0x02, 0x34, 0x56]))
@@ -221,7 +229,7 @@ mod tests {
     #[test]
     pub fn test_decode_path_4() {
         let (nibbles, terminator) =
-            Nibbles::from_encoded_path(vec![0x32, 0x34, 0x56].into()).unwrap();
+            Nibbles::from_encoded_path_with_terminator(vec![0x32, 0x34, 0x56].into()).unwrap();
         assert_eq!(
             hex::encode(nibbles.to_raw_path()),
             hex::encode(Bytes::from(vec![0x02, 0x34, 0x56]))
