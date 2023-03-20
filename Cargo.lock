@@ -6224,6 +6224,7 @@ dependencies = [
  "anvil",
  "anvil-core",
  "bus-mapping",
+ "bytes",
  "dotenv",
  "eth-types",
  "ethers",

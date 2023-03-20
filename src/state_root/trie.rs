@@ -3,10 +3,11 @@ use std::{collections::HashMap, fmt};
 use super::nibbles::Nibbles;
 use crate::error::Error;
 
+use bytes::BytesMut;
 use ethers::{
     prelude::EthDisplay,
     types::{Bytes, H256},
-    utils::{hex, keccak256, rlp::Rlp},
+    utils::{hex, keccak256, rlp, rlp::Rlp},
 };
 
 const EMPTY_ROOT_STR: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
@@ -79,6 +80,10 @@ impl Trie {
                 }
             }
         }
+    }
+
+    pub fn set_value(path: Nibbles, new_value: Bytes) -> Result<(), Error> {
+        todo!()
     }
 
     pub fn load_proof(
@@ -218,6 +223,50 @@ impl NodeData {
             _ => Err(Error::InternalError("Unknown num_items")),
         }
     }
+
+    pub fn to_raw_rlp(&self) -> Result<Bytes, Error> {
+        let mut rlp_stream = rlp::RlpStream::new();
+        match self {
+            NodeData::Leaf { key, value } => {
+                let key_bm = BytesMut::from(key.encode_path(true).to_vec().as_slice());
+                let value_bm = BytesMut::from(value.to_vec().as_slice());
+                rlp_stream.begin_list(2);
+                rlp_stream.append(&key_bm);
+                rlp_stream.append(&value_bm);
+            }
+            NodeData::Branch(arr) => {
+                rlp_stream.begin_list(17);
+                for entry in arr.iter() {
+                    let bm = if entry.is_some() {
+                        BytesMut::from(entry.to_owned().unwrap().as_bytes())
+                    } else {
+                        BytesMut::new()
+                    };
+                    rlp_stream.append(&bm);
+                }
+            }
+            NodeData::Extension { key, node } => {
+                let key_bm = BytesMut::from(key.encode_path(false).to_vec().as_slice());
+                let value_bm = BytesMut::from(node.as_bytes());
+                rlp_stream.begin_list(2);
+                rlp_stream.append(&key_bm);
+                rlp_stream.append(&value_bm);
+            }
+        }
+        Ok(Bytes::from(rlp_stream.out().to_vec()))
+    }
+
+    pub fn set_value_on_leaf(&mut self, new_value: Bytes) -> Result<(), Error> {
+        match self {
+            NodeData::Leaf { key: _, value } => {
+                *value = new_value.clone();
+                Ok(())
+            }
+            _ => Err(Error::InternalError(
+                "set_value_on_leaf is only valid on leaf nodes",
+            )),
+        }
+    }
 }
 
 impl fmt::Debug for NodeData {
@@ -282,6 +331,28 @@ mod tests {
     }
 
     #[test]
+    pub fn test_node_data_new_leaf_node_2() {
+        let input_raw_rlp =
+            "e3a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e56308";
+        let node_data = NodeData::from_raw_rlp(input_raw_rlp.parse().unwrap()).unwrap();
+        assert_eq!(hex::encode(node_data.to_raw_rlp().unwrap()), input_raw_rlp);
+    }
+
+    #[test]
+    pub fn test_node_data_new_leaf_node_3() {
+        let input_raw_rlp =
+            "e3a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e56308";
+        let mut node_data = NodeData::from_raw_rlp(input_raw_rlp.parse().unwrap()).unwrap();
+        node_data
+            .set_value_on_leaf("0x01".parse().unwrap())
+            .unwrap();
+        assert_eq!(
+            hex::encode(node_data.to_raw_rlp().unwrap()),
+            "e3a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e56301" // 8 changed to 1
+        );
+    }
+
+    #[test]
     pub fn test_node_data_new_extension_node_1() {
         let node_data = NodeData::from_raw_rlp(
             "0xe583165a7ba0e46db0426b9d34c7b2df7baf0480777946e6b5b74a0572592b0229a4edaed944"
@@ -301,6 +372,14 @@ mod tests {
                     .unwrap(),
             }
         );
+    }
+
+    #[test]
+    pub fn test_node_data_new_extension_node_2() {
+        let input_raw_rlp =
+            "e583165a7ba0e46db0426b9d34c7b2df7baf0480777946e6b5b74a0572592b0229a4edaed944";
+        let node_data = NodeData::from_raw_rlp(input_raw_rlp.parse().unwrap()).unwrap();
+        assert_eq!(hex::encode(node_data.to_raw_rlp().unwrap()), input_raw_rlp);
     }
 
     #[test]
@@ -344,6 +423,14 @@ mod tests {
                 None,
             ])
         );
+    }
+
+    #[test]
+    pub fn test_node_data_new_branch_2() {
+        let input_raw_rlp =
+            "f851a0e97150c3ed221a6f46bdcd44e8a2d44825bc781fa48f797e9df2f8ceff52a43e8080808080808080808080a09487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee5043280808080";
+        let node_data = NodeData::from_raw_rlp(input_raw_rlp.parse().unwrap()).unwrap();
+        assert_eq!(hex::encode(node_data.to_raw_rlp().unwrap()), input_raw_rlp);
     }
 
     #[test]

@@ -21,3 +21,4 @@ itertools = "0.10"
 tokio = { version = "1.13", features = ["macros"] }
 futures = { version = "0.3.*" }
 dotenv = "0.15.0"
+bytes = "1.1.0"
