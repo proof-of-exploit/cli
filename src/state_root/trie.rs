@@ -82,8 +82,100 @@ impl Trie {
         }
     }
 
-    pub fn set_value(path: Nibbles, new_value: Bytes) -> Result<(), Error> {
-        todo!()
+    pub fn set_value(&mut self, path: Nibbles, new_value: Bytes) -> Result<(), Error> {
+        if self.root.is_none() {
+            return Err(Error::InternalError("root not set"));
+        }
+
+        let mut hash_current = self.root.unwrap();
+        let mut i = 0;
+        let u4_vec = path.to_u4_vec();
+        let mut hash_vec = Vec::new();
+        hash_vec.push(hash_current);
+
+        // loop that traverses in, and finds a Leaf node or errors out
+        loop {
+            let node_data = self
+                .nodes
+                .get(&hash_current)
+                .ok_or_else(|| Error::InternalError("node not present, please add a proof"))?;
+
+            match node_data {
+                NodeData::Leaf { key, value: _ } => {
+                    if key.to_u4_vec() == path.slice(i)?.to_u4_vec() {
+                        // TODO if value is set to zero, then this node has to be deleted
+                        break;
+                    } else {
+                        return Err(Error::InternalError("path mismatch"));
+                    }
+                }
+                NodeData::Branch(arr) => {
+                    let nibble = u4_vec[i] as usize;
+                    if arr[nibble].is_some() {
+                        hash_current = arr[nibble as usize].unwrap();
+                    } else {
+                        // key value is not in the root, it is resolving to empty
+                        // TODO here we have to alter the trie to add an entry
+                        todo!()
+                    }
+                    i += 1;
+                }
+                NodeData::Extension { key, node } => {
+                    hash_current = node.to_owned();
+                    i += key.len();
+                }
+            }
+            hash_vec.push(hash_current);
+        }
+
+        let mut hash_old = hash_vec.pop().unwrap();
+        let mut leaf_node = self
+            .nodes
+            .remove(&hash_old)
+            .ok_or_else(|| Error::InternalError("leaf found but still got None somehow"))?;
+        leaf_node.set_value_on_leaf(new_value)?;
+        let mut hash_new = leaf_node.hash()?;
+        self.nodes.insert(hash_new, leaf_node);
+
+        // loop that traverses out
+        loop {
+            if let Some(hash_old_parent) = hash_vec.pop() {
+                let mut parent_node = self.nodes.remove(&hash_old_parent).ok_or_else(|| {
+                    Error::InternalError("parent found but still got None somehow")
+                })?;
+                parent_node = match parent_node {
+                    NodeData::Leaf { key: _, value: _ } => {
+                        return Err(Error::InternalError(
+                            "we got leaf again, this should ideally not happen",
+                        ))
+                    }
+                    NodeData::Branch(mut arr) => {
+                        let some_index = arr
+                            .iter()
+                            .position(|el| el.is_some() && el.unwrap() == hash_old);
+                        if some_index.is_none() {
+                            return Err(Error::InternalError(
+                                "hash not found in parent node, this should ideally not happen",
+                            ));
+                        }
+                        arr[some_index.unwrap()] = Some(hash_new);
+                        NodeData::Branch(arr)
+                    }
+                    NodeData::Extension { key, node: _ } => NodeData::Extension {
+                        key,
+                        node: hash_new,
+                    },
+                };
+                hash_old = hash_old_parent;
+                hash_new = parent_node.hash()?;
+                self.nodes.insert(hash_new, parent_node);
+            } else {
+                self.root = Some(hash_new);
+                break;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn load_proof(
@@ -222,6 +314,10 @@ impl NodeData {
             }),
             _ => Err(Error::InternalError("Unknown num_items")),
         }
+    }
+
+    pub fn hash(&self) -> Result<H256, Error> {
+        Ok(H256::from(keccak256(self.to_raw_rlp()?)))
     }
 
     pub fn to_raw_rlp(&self) -> Result<Bytes, Error> {
@@ -909,5 +1005,54 @@ mod tests {
             .unwrap(),
             "0x00".parse::<Bytes>().unwrap(),
         );
+    }
+
+    #[test]
+    pub fn test_trie_set_value_1() {
+        let mut trie = Trie::new();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0x405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace", // hash(pad(2))
+            ),
+            "0x04".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a0305787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace04".parse().unwrap()
+            ],
+        ).unwrap();
+
+        trie.load_proof(
+            Nibbles::from_raw_path_str(
+                "0xc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b",
+            ),
+            "0x09".parse().unwrap(),
+            vec![
+                "0xf85180808080a03f39d7bf4be8677b2d7db8f944e618380c443e7615adddd29b4cba751d7acdc580808080808080a055037b5dac295c1605ec14cf282314a2870cbf448e24cf0cbc1b46fc09ad731e80808080".parse().unwrap(),
+                "0xe2a032575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b09".parse().unwrap()
+            ],
+        ).unwrap();
+
+        println!("trie before {:#?}", trie);
+        assert_eq!(
+            hex::encode(trie.root.unwrap()),
+            "e730900f060334776424339bad2d8fb6f53d8b2ddbf991f492d852fb119addc0"
+        );
+
+        trie.set_value(
+            Nibbles::from_raw_path_str(
+                "0xc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b",
+            ),
+            "0x08".parse().unwrap(),
+        )
+        .unwrap();
+
+        println!("trie after {:#?}", trie);
+        assert_eq!(
+            hex::encode(trie.root.unwrap()),
+            "a8c351fd6909c41a53b213f026c3150740e6a0ce1229378b4da9cbde09981812"
+        );
+
+        // assert!(false);
     }
 }
