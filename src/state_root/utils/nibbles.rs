@@ -1,7 +1,7 @@
 use std::fmt;
 
 use ethers::{
-    types::{BigEndianHash, Bytes, H256, U256},
+    types::{Address, BigEndianHash, Bytes, H256, U256},
     utils::keccak256,
 };
 
@@ -20,11 +20,9 @@ fn u8_to_u4_vec(u8_vec: Vec<u8>) -> Vec<u8> {
 }
 
 impl Nibbles {
-    pub fn from_address(str: &str) -> Result<Nibbles, Error> {
+    pub fn from_address(address: Address) -> Result<Nibbles, Error> {
         Ok(Self::from_raw_path(Bytes::from(
-            H256::from(keccak256(str.parse::<Bytes>().unwrap()))
-                .as_bytes()
-                .to_vec(),
+            H256::from(keccak256(address)).as_bytes().to_vec(),
         )))
     }
 
@@ -311,7 +309,12 @@ mod tests {
 
     #[test]
     pub fn test_from_address_1() {
-        let nibbles = Nibbles::from_address("0x0000000000000000000000000000000000000000").unwrap();
+        let nibbles = Nibbles::from_address(
+            "0x0000000000000000000000000000000000000000"
+                .parse()
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(
             hex::encode(nibbles.to_raw_path()),
             "5380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312a"
@@ -320,7 +323,12 @@ mod tests {
 
     #[test]
     pub fn test_from_address_2() {
-        let nibbles = Nibbles::from_address("0xB85e2cCa665D14A2C221F6975042c8d94D3847F8").unwrap();
+        let nibbles = Nibbles::from_address(
+            "0xB85e2cCa665D14A2C221F6975042c8d94D3847F8"
+                .parse()
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(
             hex::encode(nibbles.to_raw_path()),
             "42dbef1b0a69a4c3d7a0551f30a6e7afb9c3a123c7d8c646df72249db3ea19be"

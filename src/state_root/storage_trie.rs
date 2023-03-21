@@ -1,8 +1,11 @@
 use super::utils::{Nibbles, Trie};
 use crate::error::Error;
-use ethers::types::{Bytes, H256};
+use ethers::{
+    prelude::EthDisplay,
+    types::{BigEndianHash, Bytes, H256, U256},
+};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EthDisplay, PartialEq)]
 pub struct StorageTrie(Trie);
 
 impl StorageTrie {
@@ -22,23 +25,33 @@ impl StorageTrie {
         self.0.root
     }
 
-    pub fn get_value(&self, path: Nibbles) -> Result<H256, Error> {
+    pub fn get_value(&self, path: Nibbles) -> Result<U256, Error> {
         let bytes = self.0.get_value(path)?;
-        Ok(H256::from_slice(bytes.to_vec().as_slice()))
+        Ok(U256::from_big_endian(bytes.to_vec().as_slice()))
     }
 
-    pub fn set_value(&mut self, path: Nibbles, new_value: H256) -> Result<(), Error> {
-        self.0
-            .set_value(path, Bytes::from(new_value.as_bytes().to_vec()))
+    pub fn set_value(&mut self, path: Nibbles, new_value: U256) -> Result<(), Error> {
+        self.0.set_value(path, u256_to_bytes(new_value))
     }
 
     pub fn load_proof(
         &mut self,
         key: Nibbles,
-        value: H256,
+        value: U256,
         proof: Vec<Bytes>,
     ) -> Result<(), Error> {
-        self.0
-            .load_proof(key, Bytes::from(value.as_bytes().to_vec()), proof)
+        self.0.load_proof(key, u256_to_bytes(value), proof)
     }
+}
+
+fn u256_to_bytes(value: U256) -> Bytes {
+    let mut vec = H256::from_uint(&value).as_bytes().to_vec();
+    loop {
+        if vec[0] == 0 {
+            vec.remove(0);
+        } else {
+            break;
+        }
+    }
+    Bytes::from(vec)
 }

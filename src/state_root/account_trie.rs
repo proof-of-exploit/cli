@@ -1,11 +1,12 @@
 use super::utils::{Nibbles, Trie};
 use crate::error::Error;
 use ethers::{
+    prelude::EthDisplay,
     types::{Bytes, H256, U256},
     utils::rlp::{Rlp, RlpStream},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EthDisplay, PartialEq)]
 pub struct AccountTrie(Trie);
 
 impl AccountTrie {
@@ -25,7 +26,7 @@ impl AccountTrie {
         self.0.root
     }
 
-    pub fn get_value(&self, path: Nibbles) -> Result<AccountData, Error> {
+    pub fn get_account_data(&self, path: Nibbles) -> Result<AccountData, Error> {
         let raw_account = self.0.get_value(path)?;
         AccountData::from_raw_rlp(raw_account)
     }
@@ -35,12 +36,12 @@ impl AccountTrie {
     }
 
     pub fn set_nonce(&mut self, path: Nibbles, new_nonce: U256) -> Result<(), Error> {
-        let mut data = self.get_value(path.clone())?;
+        let mut data = self.get_account_data(path.clone())?;
         data.nonce = new_nonce;
         self.0.set_value(path, data.to_raw_rlp()?)
     }
     pub fn set_balance(&mut self, path: Nibbles, new_balance: U256) -> Result<(), Error> {
-        let mut data = self.get_value(path.clone())?;
+        let mut data = self.get_account_data(path.clone())?;
         data.balance = new_balance;
         self.0.set_value(path, data.to_raw_rlp()?)
     }
@@ -57,10 +58,10 @@ impl AccountTrie {
 
 #[derive(Debug, Clone)]
 pub struct AccountData {
-    nonce: U256,
-    balance: U256,
-    storage_root: H256,
-    code_hash: H256,
+    pub nonce: U256,
+    pub balance: U256,
+    pub storage_root: H256,
+    pub code_hash: H256,
 }
 
 impl AccountData {
@@ -121,9 +122,24 @@ mod tests {
 
         // loading proof for accounts whose account was changed: sender, receiver and miner
         let mut trie = AccountTrie::new();
-        let sender = Nibbles::from_address("0x2a65Aca4D5fC5B5C859090a6c34d164135398226").unwrap();
-        let receiver = Nibbles::from_address("0xb6046a76bD03474b16aD52B1fC581CD5a2465Bd3").unwrap();
-        let miner = Nibbles::from_address("0x68795C4AA09D6f4Ed3E5DeDDf8c2AD3049A601da").unwrap();
+        let sender = Nibbles::from_address(
+            "0x2a65Aca4D5fC5B5C859090a6c34d164135398226"
+                .parse()
+                .unwrap(),
+        )
+        .unwrap();
+        let receiver = Nibbles::from_address(
+            "0xb6046a76bD03474b16aD52B1fC581CD5a2465Bd3"
+                .parse()
+                .unwrap(),
+        )
+        .unwrap();
+        let miner = Nibbles::from_address(
+            "0x68795C4AA09D6f4Ed3E5DeDDf8c2AD3049A601da"
+                .parse()
+                .unwrap(),
+        )
+        .unwrap();
 
         trie.load_proof(
             sender.clone(),
