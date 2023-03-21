@@ -1,4 +1,4 @@
-use super::{nibbles::Nibbles, trie::Trie};
+use super::utils::{Nibbles, Trie};
 use crate::error::Error;
 use ethers::{
     types::{Bytes, H256, U256},
@@ -87,9 +87,7 @@ impl AccountData {
 
 #[cfg(test)]
 mod tests {
-    use crate::state_root::nibbles::Nibbles;
-
-    use super::{AccountData, AccountTrie, U256};
+    use super::{AccountData, AccountTrie, Nibbles, U256};
     use ethers::utils::parse_ether;
     use ethers_core::utils::hex;
 
