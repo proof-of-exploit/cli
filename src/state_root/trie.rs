@@ -15,7 +15,7 @@ const EMPTY_VALUE_STR: &str = "0x00";
 
 #[derive(Clone, Debug, EthDisplay, PartialEq)]
 pub struct Trie {
-    root: Option<H256>,
+    pub root: Option<H256>,
     nodes: HashMap<H256, NodeData>,
 }
 

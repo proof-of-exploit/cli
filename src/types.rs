@@ -1,4 +1,5 @@
 pub mod zkevm_types {
+    use eth_types::BigEndianHash;
     pub use eth_types::{
         evm_types::{Gas, GasCost, Memory, OpcodeId, ProgramCounter, Stack, Storage},
         Address, Block, Bytes, EIP1186ProofResponse, GethExecStep, GethExecTrace, Hash,
@@ -13,6 +14,10 @@ pub mod zkevm_types {
 
     pub fn h256_to_u256(input: H256) -> U256 {
         U256::from_big_endian(input.as_bytes())
+    }
+
+    pub fn u256_to_h256(input: U256) -> H256 {
+        H256::from_uint(&input)
     }
 }
 
