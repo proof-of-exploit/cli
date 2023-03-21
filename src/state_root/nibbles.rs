@@ -1,6 +1,9 @@
 use std::fmt;
 
-use ethers::types::Bytes;
+use ethers::{
+    types::{BigEndianHash, Bytes, H256, U256},
+    utils::keccak256,
+};
 
 use crate::error::Error;
 
@@ -17,6 +20,24 @@ fn u8_to_u4_vec(u8_vec: Vec<u8>) -> Vec<u8> {
 }
 
 impl Nibbles {
+    pub fn from_address(str: &str) -> Result<Nibbles, Error> {
+        Ok(Self::from_raw_path(Bytes::from(
+            H256::from(keccak256(str.parse::<Bytes>().unwrap()))
+                .as_bytes()
+                .to_vec(),
+        )))
+    }
+
+    pub fn from_uint(uint: U256) -> Result<Nibbles, Error> {
+        Ok(Self::from_raw_path(Bytes::from(
+            H256::from(keccak256(Bytes::from(
+                H256::from_uint(&uint).as_bytes().to_vec(),
+            )))
+            .as_bytes()
+            .to_vec(),
+        )))
+    }
+
     pub fn from_raw_path_str(str: &str) -> Self {
         Self::from_raw_path(str.parse::<Bytes>().unwrap())
     }
@@ -131,6 +152,7 @@ impl fmt::Display for Nibbles {
 #[cfg(test)]
 mod tests {
     use super::{Bytes, Nibbles};
+    use ethers::types::U256;
     use ethers_core::utils::hex;
 
     #[test]
@@ -284,6 +306,42 @@ mod tests {
         assert_eq!(
             hex::encode(nibbles.slice(2).unwrap().encode_path(false)),
             hex::encode(vec![0x00, 0x34, 0x56])
+        );
+    }
+
+    #[test]
+    pub fn test_from_address_1() {
+        let nibbles = Nibbles::from_address("0x0000000000000000000000000000000000000000").unwrap();
+        assert_eq!(
+            hex::encode(nibbles.to_raw_path()),
+            "5380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312a"
+        );
+    }
+
+    #[test]
+    pub fn test_from_address_2() {
+        let nibbles = Nibbles::from_address("0xB85e2cCa665D14A2C221F6975042c8d94D3847F8").unwrap();
+        assert_eq!(
+            hex::encode(nibbles.to_raw_path()),
+            "42dbef1b0a69a4c3d7a0551f30a6e7afb9c3a123c7d8c646df72249db3ea19be"
+        );
+    }
+
+    #[test]
+    pub fn test_from_uint_1() {
+        let nibbles = Nibbles::from_uint(U256::from(0)).unwrap();
+        assert_eq!(
+            hex::encode(nibbles.to_raw_path()),
+            "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
+        );
+    }
+
+    #[test]
+    pub fn test_from_uint_2() {
+        let nibbles = Nibbles::from_uint(U256::from(2)).unwrap();
+        assert_eq!(
+            hex::encode(nibbles.to_raw_path()),
+            "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace"
         );
     }
 }
