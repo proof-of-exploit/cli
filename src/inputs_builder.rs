@@ -8,6 +8,7 @@ pub use bus_mapping::{
     operation::RW,
     state_db::{CodeDB, StateDB},
 };
+use eth_types::BigEndianHash;
 use halo2_proofs::halo2curves::bn256::Fr;
 use zkevm_circuits::witness::block_convert;
 
@@ -85,18 +86,12 @@ impl BuilderClient {
         &self,
         block_number: usize,
     ) -> Result<(CircuitInputBuilder, EthBlockFull), Error> {
-        let (block, traces, history_hashes, prev_state_root) = self.get_block(block_number).await?;
+        let (block, traces, history_hashes) = self.get_block(block_number).await?;
         let access_set = get_state_accesses(&block, &traces)?;
         let (proofs, codes) = self.get_state(block_number, access_set).await?;
         let (state_db, code_db) = build_state_code_db(proofs, codes);
-        let builder = self.gen_inputs_from_state(
-            state_db,
-            code_db,
-            &block,
-            &traces,
-            history_hashes,
-            prev_state_root,
-        )?;
+        let builder =
+            self.gen_inputs_from_state(state_db, code_db, &block, &traces, history_hashes)?;
         Ok((builder, block))
     }
 
@@ -107,16 +102,14 @@ impl BuilderClient {
         eth_block: &EthBlockFull,
         geth_traces: &[GethExecTrace],
         history_hashes: Vec<Word>,
-        prev_state_root: Word,
     ) -> Result<CircuitInputBuilder, Error> {
         let block = Block::new(
             self.chain_id,
             history_hashes,
-            prev_state_root,
             eth_block,
             self.circuits_params,
         )?;
-        let mut builder = CircuitInputBuilder::new(sdb, code_db, block);
+        let mut builder = CircuitInputBuilder::new(sdb, code_db, &block);
         builder.handle_block(eth_block, geth_traces)?;
         Ok(builder)
     }
@@ -124,8 +117,9 @@ impl BuilderClient {
     async fn get_block(
         &self,
         block_number: usize,
-    ) -> Result<(EthBlockFull, Vec<GethExecTrace>, Vec<Word>, Word), Error> {
-        let (block, traces) = self.get_block_traces(block_number).await?;
+    ) -> Result<(EthBlockFull, Vec<GethExecTrace>, Vec<Word>), Error> {
+        let (mut block, traces) = self.get_block_traces(block_number).await?;
+        block.state_root = H256::from_uint(&U256::from(1));
 
         // fetch up to 256 blocks
         let n_blocks = std::cmp::min(256, block_number);
@@ -153,12 +147,7 @@ impl BuilderClient {
             history_hashes.push(h256_to_u256(block_hash));
         }
 
-        Ok((
-            block,
-            traces,
-            history_hashes,
-            prev_state_root.unwrap_or_default(),
-        ))
+        Ok((block, traces, history_hashes))
     }
 
     async fn get_block_traces(

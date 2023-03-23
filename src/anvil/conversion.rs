@@ -1,7 +1,6 @@
 use std::{collections::HashMap, str::FromStr};
 
 use ethers::{types::BigEndianHash, utils::hex};
-use ethers_core::types as zkevm_types_2;
 
 use crate::types::{anvil_types, zkevm_types};
 
@@ -69,18 +68,18 @@ impl Conversion<zkevm_types::Bytes> for anvil_types::Bytes {
     }
 }
 
-impl Conversion<zkevm_types_2::Bloom> for anvil_types::Bloom {
-    fn to_zkevm_type(&self) -> zkevm_types_2::Bloom {
-        zkevm_types_2::Bloom::from_slice(&self.0)
+impl Conversion<zkevm_types::Bloom> for anvil_types::Bloom {
+    fn to_zkevm_type(&self) -> zkevm_types::Bloom {
+        zkevm_types::Bloom::from_slice(&self.0)
     }
 }
 
-impl Conversion<zkevm_types_2::transaction::eip2930::AccessList> for anvil_types::AccessList {
-    fn to_zkevm_type(&self) -> zkevm_types_2::transaction::eip2930::AccessList {
-        zkevm_types_2::transaction::eip2930::AccessList(
+impl Conversion<zkevm_types::AccessList> for anvil_types::AccessList {
+    fn to_zkevm_type(&self) -> zkevm_types::AccessList {
+        zkevm_types::AccessList(
             self.0
                 .iter()
-                .map(|item| zkevm_types_2::transaction::eip2930::AccessListItem {
+                .map(|item| zkevm_types::AccessListItem {
                     address: item.address.to_zkevm_type(),
                     storage_keys: item
                         .storage_keys
@@ -94,8 +93,8 @@ impl Conversion<zkevm_types_2::transaction::eip2930::AccessList> for anvil_types
 }
 
 impl Conversion<zkevm_types::Transaction> for anvil_types::Transaction {
-    fn to_zkevm_type(&self) -> zkevm_types_2::Transaction {
-        zkevm_types_2::Transaction {
+    fn to_zkevm_type(&self) -> zkevm_types::Transaction {
+        zkevm_types::Transaction {
             hash: self.hash.to_zkevm_type(),
             nonce: self.nonce.to_zkevm_type(),
             block_hash: convert_option(self.block_hash),
@@ -118,7 +117,7 @@ impl Conversion<zkevm_types::Transaction> for anvil_types::Transaction {
             max_priority_fee_per_gas: convert_option(self.max_priority_fee_per_gas),
             max_fee_per_gas: convert_option(self.max_fee_per_gas),
             chain_id: convert_option(self.chain_id),
-            other: zkevm_types_2::OtherFields::default(),
+            other: zkevm_types::OtherFields::default(),
         }
     }
 }
@@ -152,14 +151,14 @@ impl<A: Conversion<Z>, Z> Conversion<zkevm_types::Block<Z>> for anvil_types::Blo
             mix_hash: convert_option(self.mix_hash),
             nonce: convert_option(self.nonce),
             base_fee_per_gas: convert_option(self.base_fee_per_gas),
-            other: zkevm_types_2::OtherFields::default(),
+            other: zkevm_types::OtherFields::default(),
         }
     }
 }
 
 impl Conversion<zkevm_types::TransactionReceipt> for anvil_types::TransactionReceipt {
     fn to_zkevm_type(&self) -> zkevm_types::TransactionReceipt {
-        zkevm_types_2::TransactionReceipt {
+        zkevm_types::TransactionReceipt {
             transaction_hash: self.transaction_hash.to_zkevm_type(),
             transaction_index: self.transaction_index.to_zkevm_type(),
             block_hash: convert_option(self.block_hash),

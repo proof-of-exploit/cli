@@ -7,7 +7,8 @@ pub mod zkevm_types {
     };
     pub use ethers::types::GethDebugTracingOptions;
     pub use ethers_core::types::{
-        transaction::eip2930::AccessList, Bloom, Log, TransactionReceipt,
+        transaction::eip2930::{AccessList, AccessListItem},
+        Bloom, Log, OtherFields, TransactionReceipt,
     };
     pub type EthBlockFull = Block<Transaction>;
     pub type EthBlockHeader = Block<Hash>;
