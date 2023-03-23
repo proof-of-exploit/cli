@@ -71,7 +71,15 @@ impl AnvilClient {
             )))
             .await?
         {
-            Some(block) => Ok(Some(block.to_zkevm_type())),
+            Some(block) => {
+                let mut _block = block.to_zkevm_type();
+                _block.transactions = _block
+                    .transactions
+                    .iter()
+                    .map(|tx| patch_transaction(tx.clone()))
+                    .collect();
+                Ok(Some(_block))
+            }
             None => Ok(None),
         }
     }
@@ -85,7 +93,7 @@ impl AnvilClient {
             .transaction_by_hash(hash.to_anvil_type())
             .await?
         {
-            Some(tx) => Ok(Some(tx.to_zkevm_type())),
+            Some(tx) => Ok(Some(patch_transaction(tx.to_zkevm_type()))),
             None => Ok(None),
         }
     }
@@ -140,11 +148,12 @@ impl AnvilClient {
         hash: zkevm_types::Hash,
         options: anvil_types::GethDebugTracingOptions,
     ) -> Result<zkevm_types::GethExecTrace, Error> {
-        Ok(self
+        let trace = self
             .eth_api
             .debug_trace_transaction(hash.to_anvil_type(), options)
             .await?
-            .to_zkevm_type())
+            .to_zkevm_type();
+        Ok(patch_trace(trace))
     }
 
     pub async fn get_code(
@@ -216,6 +225,22 @@ impl AnvilClient {
             sleep(Duration::from_secs(1))
         }
     }
+}
+
+pub fn patch_transaction(mut tx: zkevm_types::Transaction) -> zkevm_types::Transaction {
+    if tx.transaction_type.is_none() {
+        tx.transaction_type = Some(zkevm_types::U64::from(0));
+        tx.max_fee_per_gas = None;
+        tx.max_priority_fee_per_gas = None;
+    }
+    tx
+}
+
+pub fn patch_trace(mut trace: zkevm_types::GethExecTrace) -> zkevm_types::GethExecTrace {
+    if trace.struct_logs.len() == 1 && trace.struct_logs[0].op == zkevm_types::OpcodeId::STOP {
+        trace.struct_logs = vec![]
+    }
+    trace
 }
 
 #[cfg(test)]
