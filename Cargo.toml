@@ -14,7 +14,7 @@ bus-mapping = { path = "../zkevm-circuits/bus-mapping", features = [ "test" ] }
 eth-types = { path = "../zkevm-circuits/eth-types"}
 ethers-core = "0.17.0"
 zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test" ] }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" } 
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0220" }
 itertools = "0.10"
 
 # misc
@@ -22,3 +22,7 @@ tokio = { version = "1.13", features = ["macros"] }
 futures = { version = "0.3.*" }
 dotenv = "0.15.0"
 bytes = "1.1.0"
+
+[patch.crates-io]
+[patch."https://github.com/privacy-scaling-explorations/halo2.git"]
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0220" }
