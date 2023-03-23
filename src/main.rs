@@ -41,6 +41,6 @@ async fn main() {
     println!("proving");
     let prover = MockProver::run(k, &circuit, instance).unwrap();
     println!("proving done, now verifying");
-    let _res = prover.verify_par();
+    let _res = prover.verify_par().unwrap();
     println!("verifying done");
 }

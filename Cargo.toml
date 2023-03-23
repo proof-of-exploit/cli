@@ -5,15 +5,18 @@ edition = "2021"
 
 [dependencies]
 # anvil
-anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ] }
-anvil-core = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil-core",  features = [ "default" ] }
-ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["ws"] }
+anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ], rev = "6570a4c" }
+anvil-core = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil-core",  features = [ "default" ], rev = "6570a4c" }
+ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["ws"], rev = "80ac394" }
 
 # zkevm
+# bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", branch = "main", features = [ "test" ] }
+# eth-types = { git = "https://github.com/zemse/zkevm-circuits", branch = "main" }
+# zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", branch = "main", features = [ "test" ] }
 bus-mapping = { path = "../zkevm-circuits/bus-mapping", features = [ "test" ] }
 eth-types = { path = "../zkevm-circuits/eth-types"}
-ethers-core = "0.17.0"
 zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test" ] }
+ethers-core = "0.17.0"
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" } 
 itertools = "0.10"
 

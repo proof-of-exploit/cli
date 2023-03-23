@@ -248,11 +248,14 @@ impl Trie {
                     for _child in arr {
                         // find the appropriate child node in branch
                         let hash_next = H256::from(keccak256(proof[i + 1].clone()));
-                        if let Some(child) = _child && child == hash_next {
-                            root = child;
-                            // skip one nibble in the current key for branch nodes
-                            key_current = key_current.slice(1)?;
-                            break;
+                        if _child.is_some() {
+                            let child = _child.unwrap();
+                            if child == hash_next {
+                                root = child;
+                                // skip one nibble in the current key for branch nodes
+                                key_current = key_current.slice(1)?;
+                                break;
+                            }
                         }
                     }
                 }
