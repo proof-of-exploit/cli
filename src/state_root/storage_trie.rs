@@ -25,22 +25,20 @@ impl StorageTrie {
         self.0.root
     }
 
-    pub fn get_value(&self, path: Nibbles) -> Result<U256, Error> {
+    pub fn get_value(&self, key: U256) -> Result<U256, Error> {
+        let path = Nibbles::from_uint(key)?;
         let bytes = self.0.get_value(path)?;
         Ok(U256::from_big_endian(bytes.to_vec().as_slice()))
     }
 
-    pub fn set_value(&mut self, path: Nibbles, new_value: U256) -> Result<(), Error> {
+    pub fn set_value(&mut self, key: U256, new_value: U256) -> Result<(), Error> {
+        let path = Nibbles::from_uint(key)?;
         self.0.set_value(path, u256_to_bytes(new_value))
     }
 
-    pub fn load_proof(
-        &mut self,
-        key: Nibbles,
-        value: U256,
-        proof: Vec<Bytes>,
-    ) -> Result<(), Error> {
-        self.0.load_proof(key, u256_to_bytes(value), proof)
+    pub fn load_proof(&mut self, key: U256, value: U256, proof: Vec<Bytes>) -> Result<(), Error> {
+        let path = Nibbles::from_uint(key)?;
+        self.0.load_proof(path, u256_to_bytes(value), proof)
     }
 }
 

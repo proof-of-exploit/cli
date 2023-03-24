@@ -2,7 +2,7 @@ use super::utils::{Nibbles, Trie};
 use crate::error::Error;
 use ethers::{
     prelude::EthDisplay,
-    types::{Bytes, H256, U256},
+    types::{Address, Bytes, H256, U256},
     utils::rlp::{Rlp, RlpStream},
 };
 
@@ -26,33 +26,43 @@ impl AccountTrie {
         self.0.root
     }
 
-    pub fn get_account_data(&self, path: Nibbles) -> Result<AccountData, Error> {
+    pub fn get_account_data(&self, address: Address) -> Result<AccountData, Error> {
+        let path = Nibbles::from_address(address)?;
         let raw_account = self.0.get_value(path)?;
         AccountData::from_raw_rlp(raw_account)
     }
 
-    pub fn set_account_data(&mut self, path: Nibbles, new_value: AccountData) -> Result<(), Error> {
+    pub fn set_account_data(
+        &mut self,
+        address: Address,
+        new_value: AccountData,
+    ) -> Result<(), Error> {
+        let path = Nibbles::from_address(address)?;
         self.0.set_value(path, new_value.to_raw_rlp()?)
     }
 
-    pub fn set_nonce(&mut self, path: Nibbles, new_nonce: U256) -> Result<(), Error> {
-        let mut data = self.get_account_data(path.clone())?;
+    pub fn set_nonce(&mut self, address: Address, new_nonce: U256) -> Result<(), Error> {
+        let mut data = self.get_account_data(address)?;
         data.nonce = new_nonce;
+        let path = Nibbles::from_address(address)?;
         self.0.set_value(path, data.to_raw_rlp()?)
     }
-    pub fn set_balance(&mut self, path: Nibbles, new_balance: U256) -> Result<(), Error> {
-        let mut data = self.get_account_data(path.clone())?;
+
+    pub fn set_balance(&mut self, address: Address, new_balance: U256) -> Result<(), Error> {
+        let mut data = self.get_account_data(address)?;
         data.balance = new_balance;
+        let path = Nibbles::from_address(address)?;
         self.0.set_value(path, data.to_raw_rlp()?)
     }
 
     pub fn load_proof(
         &mut self,
-        key: Nibbles,
+        address: Address,
         value: AccountData,
         proof: Vec<Bytes>,
     ) -> Result<(), Error> {
-        self.0.load_proof(key, value.to_raw_rlp()?, proof)
+        let path = Nibbles::from_address(address)?;
+        self.0.load_proof(path, value.to_raw_rlp()?, proof)
     }
 }
 
@@ -88,7 +98,7 @@ impl AccountData {
 
 #[cfg(test)]
 mod tests {
-    use super::{AccountData, AccountTrie, Nibbles, U256};
+    use super::{AccountData, AccountTrie, Address, U256};
     use ethers::utils::parse_ether;
     use ethers_core::utils::hex;
 
@@ -122,24 +132,15 @@ mod tests {
 
         // loading proof for accounts whose account was changed: sender, receiver and miner
         let mut trie = AccountTrie::new();
-        let sender = Nibbles::from_address(
-            "0x2a65Aca4D5fC5B5C859090a6c34d164135398226"
-                .parse()
-                .unwrap(),
-        )
-        .unwrap();
-        let receiver = Nibbles::from_address(
-            "0xb6046a76bD03474b16aD52B1fC581CD5a2465Bd3"
-                .parse()
-                .unwrap(),
-        )
-        .unwrap();
-        let miner = Nibbles::from_address(
-            "0x68795C4AA09D6f4Ed3E5DeDDf8c2AD3049A601da"
-                .parse()
-                .unwrap(),
-        )
-        .unwrap();
+        let sender = "0x2a65Aca4D5fC5B5C859090a6c34d164135398226"
+            .parse::<Address>()
+            .unwrap();
+        let receiver = "0xb6046a76bD03474b16aD52B1fC581CD5a2465Bd3"
+            .parse::<Address>()
+            .unwrap();
+        let miner = "0x68795C4AA09D6f4Ed3E5DeDDf8c2AD3049A601da"
+            .parse::<Address>()
+            .unwrap();
 
         trie.load_proof(
             sender.clone(),
@@ -215,7 +216,7 @@ mod tests {
         );
 
         // performing the state transition
-        trie.set_balance(sender.clone(), U256::from("0xb51619b5e016ea68ef"))
+        trie.set_balance(sender, U256::from("0xb51619b5e016ea68ef"))
             .unwrap();
         trie.set_nonce(sender, U256::from("0x2a128")).unwrap();
         trie.set_balance(receiver, U256::from("0xe71bde762c9b378"))

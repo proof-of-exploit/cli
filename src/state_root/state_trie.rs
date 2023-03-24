@@ -10,7 +10,6 @@ use crate::error::Error;
 use super::{
     account_trie::{AccountData, AccountTrie},
     storage_trie::StorageTrie,
-    utils::Nibbles,
 };
 
 #[derive(Clone, Debug, EthDisplay, PartialEq)]
@@ -52,26 +51,22 @@ impl StateTrie {
         slot: U256,
         value: U256,
     ) -> Result<(), Error> {
-        let mut account_data = self
-            .account_trie
-            .get_account_data(Nibbles::from_address(address)?)?;
+        let mut account_data = self.account_trie.get_account_data(address)?;
         let mut storage_trie = self
             .storage_tries
             .remove(&account_data.storage_root)
             .expect("storage trie not present, this should not happen");
-        storage_trie.set_value(Nibbles::from_uint(slot)?, value)?;
+        storage_trie.set_value(slot, value)?;
         account_data.storage_root = storage_trie.root().unwrap();
         self.storage_tries
             .insert(storage_trie.root().unwrap(), storage_trie);
-        self.account_trie
-            .set_account_data(Nibbles::from_address(address)?, account_data)?;
+        self.account_trie.set_account_data(address, account_data)?;
         Ok(())
     }
 
     pub fn load_proof(&mut self, proof: EIP1186ProofResponse) -> Result<(), Error> {
-        let account_trie_key = Nibbles::from_address(proof.address)?;
         self.account_trie.load_proof(
-            account_trie_key,
+            proof.address,
             AccountData {
                 balance: proof.balance,
                 nonce: U256::from(proof.nonce.as_u64()),
@@ -84,7 +79,7 @@ impl StateTrie {
         let mut storage_trie = self.get_storage_trie(proof.storage_hash);
         for proof in proof.storage_proof {
             storage_trie.load_proof(
-                Nibbles::from_uint(U256::from_big_endian(proof.key.as_bytes()))?,
+                U256::from_big_endian(proof.key.as_bytes()),
                 proof.value, // error is here, value does not need to be 32 byte
                 proof.proof,
             )?;
@@ -97,7 +92,7 @@ impl StateTrie {
 
 #[cfg(test)]
 mod tests {
-    use super::{EIP1186ProofResponse, Nibbles, StateTrie, U256};
+    use super::{EIP1186ProofResponse, StateTrie, U256};
     use ethers::types::StorageProof;
     use ethers_core::utils::hex;
 
@@ -174,23 +169,17 @@ mod tests {
 
         trie.account_trie
             .set_nonce(
-                Nibbles::from_address(
-                    "0x3736b9d9d35d8c4f41d98a412fe9211024453575"
-                        .parse()
-                        .unwrap(),
-                )
-                .unwrap(),
+                "0x3736b9d9d35d8c4f41d98a412fe9211024453575"
+                    .parse()
+                    .unwrap(),
                 U256::from(4),
             )
             .unwrap();
         trie.account_trie
             .set_balance(
-                Nibbles::from_address(
-                    "0x3736b9d9d35d8c4f41d98a412fe9211024453575"
-                        .parse()
-                        .unwrap(),
-                )
-                .unwrap(),
+                "0x3736b9d9d35d8c4f41d98a412fe9211024453575"
+                    .parse()
+                    .unwrap(),
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffff45eff0fafd74"
                     .parse()
                     .unwrap(),
