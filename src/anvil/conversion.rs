@@ -275,6 +275,32 @@ impl Conversion<zkevm_types::EIP1186ProofResponse> for anvil_types::EIP1186Proof
     }
 }
 
+impl ConversionReverse<anvil_types::EIP1186ProofResponse> for zkevm_types::EIP1186ProofResponse {
+    fn to_anvil_type(&self) -> anvil_types::EIP1186ProofResponse {
+        anvil_types::EIP1186ProofResponse {
+            address: self.address.to_anvil_type(),
+            balance: self.balance.to_anvil_type(),
+            code_hash: self.code_hash.to_anvil_type(),
+            nonce: anvil_types::U64::from(self.nonce.as_u64()),
+            storage_hash: self.storage_hash.to_anvil_type(),
+            account_proof: self
+                .account_proof
+                .iter()
+                .map(|ap| ap.to_anvil_type())
+                .collect(),
+            storage_proof: self
+                .storage_proof
+                .iter()
+                .map(|sp| anvil_types::StorageProof {
+                    key: sp.key.to_anvil_type(),
+                    value: sp.value.to_anvil_type(),
+                    proof: sp.proof.iter().map(|p| p.to_anvil_type()).collect(),
+                })
+                .collect(),
+        }
+    }
+}
+
 // Conversion from zkevm types to anvil types
 pub trait ConversionReverse<T> {
     fn to_anvil_type(&self) -> T;

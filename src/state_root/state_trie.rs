@@ -14,7 +14,7 @@ use super::{
 
 #[derive(Clone, Debug, EthDisplay, PartialEq)]
 pub struct StateTrie {
-    account_trie: AccountTrie,
+    pub account_trie: AccountTrie,
     storage_tries: HashMap<H256, StorageTrie>,
 }
 

@@ -176,6 +176,68 @@ impl AnvilClient {
             .to_zkevm_type())
     }
 
+    pub async fn get_balance(
+        &self,
+        address: zkevm_types::Address,
+        block_number: Option<usize>,
+    ) -> Result<zkevm_types::U256, Error> {
+        Ok(self
+            .eth_api
+            .balance(
+                address.to_anvil_type(),
+                match block_number {
+                    Some(_block_number) => Some(anvil_types::BlockId::Number(
+                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
+                    )),
+                    None => None,
+                },
+            )
+            .await?
+            .to_zkevm_type())
+    }
+
+    pub async fn get_nonce(
+        &self,
+        address: zkevm_types::Address,
+        block_number: Option<usize>,
+    ) -> Result<zkevm_types::U256, Error> {
+        Ok(self
+            .eth_api
+            .transaction_count(
+                address.to_anvil_type(),
+                match block_number {
+                    Some(_block_number) => Some(anvil_types::BlockId::Number(
+                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
+                    )),
+                    None => None,
+                },
+            )
+            .await?
+            .to_zkevm_type())
+    }
+
+    pub async fn get_storage_at(
+        &self,
+        address: zkevm_types::Address,
+        index: zkevm_types::U256,
+        block_number: Option<usize>,
+    ) -> Result<zkevm_types::H256, Error> {
+        Ok(self
+            .eth_api
+            .storage_at(
+                address.to_anvil_type(),
+                index.to_anvil_type(),
+                match block_number {
+                    Some(_block_number) => Some(anvil_types::BlockId::Number(
+                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
+                    )),
+                    None => None,
+                },
+            )
+            .await?
+            .to_zkevm_type())
+    }
+
     pub async fn send_raw_transaction(
         &self,
         raw_tx: zkevm_types::Bytes,

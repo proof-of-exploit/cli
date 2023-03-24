@@ -25,7 +25,7 @@ pub mod anvil_types {
     pub use anvil_core::eth::transaction::EthTransactionRequest;
     pub use ethers::types::{
         transaction::eip2930::AccessList, Address, Block, BlockId, BlockNumber, Bloom, Bytes,
-        EIP1186ProofResponse, GethDebugTracingOptions, GethTrace, Log, Transaction,
+        EIP1186ProofResponse, GethDebugTracingOptions, GethTrace, Log, StorageProof, Transaction,
         TransactionReceipt, TxHash, H160, H256, H64, U256, U64,
     };
     pub type EthBlockFull = Block<Transaction>;

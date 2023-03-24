@@ -8,13 +8,20 @@ pub use bus_mapping::{
     operation::RW,
     state_db::{CodeDB, StateDB},
 };
+use ethers::utils::keccak256;
 use halo2_proofs::halo2curves::bn256::Fr;
 use zkevm_circuits::witness::block_convert;
 
 use futures::future;
 
-use crate::types::zkevm_types::*;
-use crate::{anvil::AnvilClient, error::Error};
+use crate::{
+    anvil::{
+        conversion::{Conversion, ConversionReverse},
+        AnvilClient,
+    },
+    error::Error,
+};
+use crate::{state_root::state_trie::StateTrie, types::zkevm_types::*};
 
 #[allow(dead_code)]
 pub struct BuilderClient {
@@ -85,9 +92,13 @@ impl BuilderClient {
         &self,
         block_number: usize,
     ) -> Result<(CircuitInputBuilder, EthBlockFull), Error> {
-        let (block, traces, history_hashes, prev_state_root) = self.get_block(block_number).await?;
+        let (mut block, traces, history_hashes, prev_state_root) =
+            self.get_block(block_number).await?;
         let access_set = get_state_accesses(&block, &traces)?;
-        let (proofs, codes) = self.get_state(block_number, access_set).await?;
+        let (proofs, codes, new_state_root) = self.get_state(block_number, access_set).await?;
+        if block.state_root.is_zero() {
+            block.state_root = new_state_root;
+        }
         let (state_db, code_db) = build_state_code_db(proofs, codes);
         let builder = self.gen_inputs_from_state(
             state_db,
@@ -196,30 +207,90 @@ impl BuilderClient {
 
     async fn get_state(
         &self,
-        block_num: usize,
+        block_number: usize,
         access_set: AccessSet,
-    ) -> Result<(Vec<EIP1186ProofResponse>, HashMap<Address, Vec<u8>>), Error> {
+    ) -> Result<(Vec<EIP1186ProofResponse>, HashMap<Address, Vec<u8>>, H256), Error> {
         let mut proofs = Vec::new();
-        for (address, key_set) in access_set.state {
+        for (address, key_set) in access_set.state.clone() {
             let mut keys: Vec<Word> = key_set.iter().cloned().collect();
             keys.sort();
             let proof = self
                 .anvil
-                .get_proof(address, keys, Some((block_num - 1).into()))
+                .get_proof(address, keys, Some((block_number - 1).into()))
                 .await
                 .unwrap();
             proofs.push(proof);
         }
         let mut codes: HashMap<Address, Vec<u8>> = HashMap::new();
-        for address in access_set.code {
+        for address in access_set.code.clone() {
             let code = self
                 .anvil
-                .get_code(address, Some((block_num - 1).into()))
+                .get_code(address, Some((block_number - 1).into()))
                 .await
                 .unwrap();
             codes.insert(address, code.to_vec());
         }
-        Ok((proofs, codes))
+
+        let new_state_root = self
+            .gen_state_root(block_number, access_set, &proofs)
+            .await?;
+        Ok((proofs, codes, new_state_root))
+    }
+
+    async fn gen_state_root(
+        &self,
+        block_number: usize,
+        access_set: AccessSet,
+        proofs: &Vec<EIP1186ProofResponse>,
+    ) -> Result<H256, Error> {
+        let mut trie = StateTrie::new();
+
+        for proof in proofs {
+            trie.load_proof(proof.to_anvil_type())?;
+        }
+
+        let mut addresses = Vec::<Address>::new();
+
+        for (address, key_set) in access_set.state.clone() {
+            for key in key_set {
+                let new_value = self
+                    .anvil
+                    .get_storage_at(address, key, Some(block_number))
+                    .await?;
+                trie.set_storage_value(
+                    address.to_anvil_type(),
+                    key.to_anvil_type(),
+                    h256_to_u256(new_value).to_anvil_type(),
+                )?;
+            }
+            addresses.push(address);
+        }
+        for address in access_set.code.clone() {
+            if !addresses.contains(&address) {
+                addresses.push(address);
+            }
+        }
+        for address in addresses {
+            let new_code = self
+                .anvil
+                .get_code(address, Some((block_number).into()))
+                .await
+                .unwrap();
+            let new_code_hash = H256::from(keccak256(new_code));
+            let new_balance = self.anvil.get_balance(address, Some(block_number)).await?;
+            let new_nonce = self.anvil.get_nonce(address, Some(block_number)).await?;
+
+            let mut account_data = trie
+                .account_trie
+                .get_account_data(address.to_anvil_type())?;
+            account_data.balance = new_balance.to_anvil_type();
+            account_data.code_hash = new_code_hash.to_anvil_type();
+            account_data.nonce = new_nonce.to_anvil_type();
+            trie.account_trie
+                .set_account_data(address.to_anvil_type(), account_data)?;
+        }
+
+        Ok(trie.root().unwrap().to_zkevm_type())
     }
 }
 

@@ -55,6 +55,13 @@ impl AccountTrie {
         self.0.set_value(path, data.to_raw_rlp()?)
     }
 
+    pub fn set_code_hash(&mut self, address: Address, new_code_hash: H256) -> Result<(), Error> {
+        let mut data = self.get_account_data(address)?;
+        data.code_hash = new_code_hash;
+        let path = Nibbles::from_address(address)?;
+        self.0.set_value(path, data.to_raw_rlp()?)
+    }
+
     pub fn load_proof(
         &mut self,
         address: Address,
