@@ -53,6 +53,7 @@ async fn main() {
         .await
         .unwrap();
     witness.randomness = Fr::from(0x100);
+    witness.challenge_rw_index = Some(0);
     println!("witness {:#?}", witness);
     let (_, rows_needed) =
         SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::min_num_rows_block(&witness);

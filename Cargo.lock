@@ -605,7 +605,6 @@ checksum = "0d261e256854913907f67ed06efbc3338dfe6179796deefc1ff763fc1aee5535"
 [[package]]
 name = "bus-mapping"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "eth-types",
  "ethers-core 0.17.0",
@@ -1704,7 +1703,6 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "ethers-core 0.17.0",
  "ethers-signers 0.17.0",
@@ -2166,7 +2164,6 @@ dependencies = [
 [[package]]
 name = "external-tracer"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "eth-types",
  "geth-utils",
@@ -2652,7 +2649,6 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "digest 0.7.6",
  "eth-types",
@@ -2693,7 +2689,6 @@ dependencies = [
 [[package]]
 name = "geth-utils"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "env_logger",
  "gobuild",
@@ -3387,7 +3382,6 @@ dependencies = [
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "env_logger",
  "eth-types",
@@ -3658,7 +3652,6 @@ dependencies = [
 [[package]]
 name = "mock"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "eth-types",
  "ethers-core 0.17.0",
@@ -6485,6 +6478,7 @@ dependencies = [
  "anvil-core",
  "bus-mapping",
  "bytes",
+ "clap 4.1.8",
  "dotenv",
  "eth-types",
  "ethers",
@@ -6499,7 +6493,6 @@ dependencies = [
 [[package]]
 name = "zkevm-circuits"
 version = "0.1.0"
-source = "git+https://github.com/zemse/zkevm-circuits?branch=main#8086f5153fb2411395f044e8e4c034b0fff4b8a2"
 dependencies = [
  "array-init",
  "bus-mapping",

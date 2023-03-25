@@ -58,6 +58,15 @@ impl BuilderClient {
         Self::from_circuits_params(CircuitsParams::default()).await
     }
 
+    pub async fn from_config(
+        circuits_params: CircuitsParams,
+        eth_rpc_url: Option<String>,
+        fork_block_number: Option<usize>,
+    ) -> Result<Self, Error> {
+        let anvil = AnvilClient::setup(eth_rpc_url, fork_block_number).await;
+        Self::new(anvil, circuits_params)
+    }
+
     pub async fn from_circuits_params(circuits_params: CircuitsParams) -> Result<Self, Error> {
         let anvil = AnvilClient::default().await;
         Self::new(anvil, circuits_params)
