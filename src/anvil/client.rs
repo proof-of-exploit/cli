@@ -309,6 +309,8 @@ pub fn patch_trace(mut trace: zkevm_types::GethExecTrace) -> zkevm_types::GethEx
 mod tests {
     use crate::anvil::AnvilClient;
 
+    // ignored because cannot run anvil again in other test
+    #[ignore]
     #[tokio::test]
     async fn test() {
         let cli = AnvilClient::setup(None, None).await;
