@@ -1,16 +1,15 @@
 use anvil::eth::error::BlockchainError;
 use ethers_core::utils::rlp;
+use halo2_proofs::plonk;
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Error {
-    // error coming from anvil
     AnvilError(BlockchainError),
-    // rlp decoding error
     RlpDecoderError(rlp::DecoderError),
-    // error coming from bus-mapping crate
     BusMappingError(bus_mapping::Error),
-    // some issue described in string
+    Halo2Error(plonk::Error),
+    StdError(std::io::Error),
     InternalError(&'static str),
 }
 
@@ -29,5 +28,17 @@ impl From<bus_mapping::Error> for Error {
 impl From<rlp::DecoderError> for Error {
     fn from(err: rlp::DecoderError) -> Self {
         Error::RlpDecoderError(err)
+    }
+}
+
+impl From<plonk::Error> for Error {
+    fn from(err: plonk::Error) -> Self {
+        Error::Halo2Error(err)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::StdError(err)
     }
 }

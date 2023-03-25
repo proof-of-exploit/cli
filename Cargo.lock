@@ -6486,6 +6486,7 @@ dependencies = [
  "futures",
  "halo2_proofs 0.2.0",
  "itertools",
+ "rand_chacha 0.3.1",
  "tokio",
  "zkevm-circuits",
 ]
