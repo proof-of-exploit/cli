@@ -93,7 +93,7 @@ struct Args {
     max_bytecode: usize,
     #[arg(long, default_value_t = 1000)]
     max_evm_rows: usize,
-    #[arg(long, default_value_t = 1000)]
+    #[arg(long, default_value_t = 3000)]
     max_keccak_rows: usize,
 }
 
