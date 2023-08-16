@@ -213,7 +213,7 @@ async fn main() {
         )));
         println!("writing proof to {}", proof_path.display());
         let mut file = File::create(proof_path).unwrap();
-        file.write(proof.as_slice()).unwrap();
+        file.write_all(proof.as_slice()).unwrap();
         println!("success");
     }
 }
