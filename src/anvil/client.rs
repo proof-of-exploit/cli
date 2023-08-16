@@ -165,15 +165,25 @@ impl AnvilClient {
             .eth_api
             .get_code(
                 address.to_anvil_type(),
-                match block_number {
-                    Some(_block_number) => Some(anvil_types::BlockId::Number(
-                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
-                    )),
-                    None => None,
-                },
+                block_number.map(|_block_number| {
+                    anvil_types::BlockId::Number(anvil_types::BlockNumber::Number(
+                        anvil_types::U64::from(_block_number),
+                    ))
+                }),
             )
             .await?
             .to_zkevm_type())
+    }
+
+    pub async fn set_code(
+        &self,
+        address: zkevm_types::Address,
+        code: zkevm_types::Bytes,
+    ) -> Result<(), Error> {
+        Ok(self
+            .eth_api
+            .anvil_set_code(address.to_anvil_type(), code.to_anvil_type())
+            .await?)
     }
 
     pub async fn get_balance(
