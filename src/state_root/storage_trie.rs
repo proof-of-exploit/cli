@@ -5,14 +5,10 @@ use ethers::{
     types::{BigEndianHash, Bytes, H256, U256},
 };
 
-#[derive(Debug, Clone, EthDisplay, PartialEq)]
+#[derive(Clone, Debug, Default, EthDisplay, PartialEq)]
 pub struct StorageTrie(Trie);
 
 impl StorageTrie {
-    pub fn new() -> Self {
-        StorageTrie(Trie::new())
-    }
-
     pub fn from_root(root: H256) -> Self {
         StorageTrie(Trie::from_root(root))
     }

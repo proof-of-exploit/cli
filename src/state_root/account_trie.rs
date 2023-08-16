@@ -6,14 +6,10 @@ use ethers::{
     utils::rlp::{Rlp, RlpStream},
 };
 
-#[derive(Debug, Clone, EthDisplay, PartialEq)]
+#[derive(Clone, Debug, Default, EthDisplay, PartialEq)]
 pub struct AccountTrie(Trie);
 
 impl AccountTrie {
-    pub fn new() -> Self {
-        AccountTrie(Trie::new())
-    }
-
     pub fn from_root(root: H256) -> Self {
         AccountTrie(Trie::from_root(root))
     }
@@ -93,7 +89,7 @@ impl AccountData {
     }
 
     pub fn to_raw_rlp(&self) -> Result<Bytes, Error> {
-        let mut rlp_stream = RlpStream::new();
+        let mut rlp_stream = RlpStream::default();
         rlp_stream.begin_list(4);
         rlp_stream.append(&self.nonce);
         rlp_stream.append(&self.balance);
@@ -129,7 +125,7 @@ mod tests {
         // encode
         assert_eq!(hex::encode(account.to_raw_rlp().unwrap()), raw_rlp);
 
-        println!("{:?}", account);
+        println!("{account:?}");
     }
 
     #[test]
@@ -138,7 +134,7 @@ mod tests {
         // https://etherscan.io/txs?block=1000008
 
         // loading proof for accounts whose account was changed: sender, receiver and miner
-        let mut trie = AccountTrie::new();
+        let mut trie = AccountTrie::default();
         let sender = "0x2a65Aca4D5fC5B5C859090a6c34d164135398226"
             .parse::<Address>()
             .unwrap();
@@ -150,7 +146,7 @@ mod tests {
             .unwrap();
 
         trie.load_proof(
-            sender.clone(),
+            sender,
             AccountData {
                 nonce: U256::from("0x2a127"),
                 balance: U256::from("0xb5248f2ebf8f5db4ef"),
@@ -172,7 +168,7 @@ mod tests {
         .unwrap();
 
         trie.load_proof(
-            receiver.clone(),
+            receiver,
             AccountData {
                 nonce: U256::from("0x20d"),
                 balance: U256::from("0x175a0778"),
@@ -195,7 +191,7 @@ mod tests {
         .unwrap();
 
         trie.load_proof(
-            miner.clone(),
+            miner,
             AccountData {
                 nonce: U256::from("0x2651"),
                 balance: U256::from("0x43cc248fcad9b3f3b0"),

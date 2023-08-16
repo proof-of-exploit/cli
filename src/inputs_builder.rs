@@ -149,14 +149,14 @@ impl BuilderClient {
 
         // fetch up to 256 blocks
         let n_blocks = std::cmp::min(256, block_number);
-        let mut futures = Vec::new();
+        let mut futures = Vec::default();
         for i in 1..n_blocks {
             let header_future = self.anvil.block_by_number(block_number - i);
             futures.push(header_future);
         }
 
         let mut prev_state_root: Option<Word> = None;
-        let mut history_hashes = Vec::new();
+        let mut history_hashes = Vec::default();
         let results = future::join_all(futures).await;
         for result in results {
             let header = result?.expect("parent block not found");
@@ -191,7 +191,7 @@ impl BuilderClient {
             .await?
             .expect("block not found");
 
-        let mut traces = Vec::new();
+        let mut traces = Vec::default();
         for tx in &block.transactions {
             let anvil_trace = self
                 .anvil
@@ -219,22 +219,22 @@ impl BuilderClient {
         block_number: usize,
         access_set: AccessSet,
     ) -> Result<(Vec<EIP1186ProofResponse>, HashMap<Address, Vec<u8>>, H256), Error> {
-        let mut proofs = Vec::new();
+        let mut proofs = Vec::default();
         for (address, key_set) in access_set.state.clone() {
             let mut keys: Vec<Word> = key_set.iter().cloned().collect();
             keys.sort();
             let proof = self
                 .anvil
-                .get_proof(address, keys, Some((block_number - 1).into()))
+                .get_proof(address, keys, Some(block_number - 1))
                 .await
                 .unwrap();
             proofs.push(proof);
         }
-        let mut codes: HashMap<Address, Vec<u8>> = HashMap::new();
+        let mut codes: HashMap<Address, Vec<u8>> = HashMap::default();
         for address in access_set.code.clone() {
             let code = self
                 .anvil
-                .get_code(address, Some((block_number - 1).into()))
+                .get_code(address, Some(block_number - 1))
                 .await
                 .unwrap();
             codes.insert(address, code.to_vec());
@@ -252,13 +252,13 @@ impl BuilderClient {
         access_set: AccessSet,
         proofs: &Vec<EIP1186ProofResponse>,
     ) -> Result<H256, Error> {
-        let mut trie = StateTrie::new();
+        let mut trie = StateTrie::default();
 
         for proof in proofs {
             trie.load_proof(proof.to_anvil_type())?;
         }
 
-        let mut addresses = Vec::<Address>::new();
+        let mut addresses = Vec::<Address>::default();
 
         for (address, key_set) in access_set.state.clone() {
             for key in key_set {
@@ -282,7 +282,7 @@ impl BuilderClient {
         for address in addresses {
             let new_code = self
                 .anvil
-                .get_code(address, Some((block_number).into()))
+                .get_code(address, Some(block_number))
                 .await
                 .unwrap();
             let new_code_hash = H256::from(keccak256(new_code));

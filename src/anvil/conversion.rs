@@ -11,10 +11,7 @@ pub trait Conversion<T> {
 }
 
 pub fn convert_option<A: Conversion<Z>, Z>(some_val: Option<A>) -> Option<Z> {
-    match some_val {
-        Some(val) => Some(val.to_zkevm_type()),
-        None => None,
-    }
+    some_val.map(|val| val.to_zkevm_type())
 }
 
 impl Conversion<zkevm_types::U256> for anvil_types::U256 {
@@ -111,10 +108,10 @@ impl Conversion<zkevm_types::Transaction> for anvil_types::Transaction {
             r: self.r.to_zkevm_type(),
             s: self.s.to_zkevm_type(),
             transaction_type: convert_option(self.transaction_type),
-            access_list: match &self.access_list {
-                Some(access_list) => Some(access_list.to_zkevm_type()),
-                None => None,
-            },
+            access_list: self
+                .access_list
+                .as_ref()
+                .map(|access_list| access_list.to_zkevm_type()),
             max_priority_fee_per_gas: convert_option(self.max_priority_fee_per_gas),
             max_fee_per_gas: convert_option(self.max_fee_per_gas),
             chain_id: convert_option(self.chain_id),
@@ -199,49 +196,48 @@ impl Conversion<zkevm_types::Log> for anvil_types::Log {
 
 impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
     fn to_zkevm_type(&self) -> zkevm_types::GethExecTrace {
-        if let ethers::types::GethTrace::Known(anvil_trace_frame) = self.to_owned() {
-            if let ethers::types::GethTraceFrame::Default(anvil_trace) = anvil_trace_frame {
-                zkevm_types::GethExecTrace {
-                    gas: zkevm_types::Gas(anvil_trace.gas.as_u64()),
-                    failed: anvil_trace.failed,
-                    return_value: hex::encode(anvil_trace.return_value.as_ref()), // TODO see if 0x adjustment is needed
-                    struct_logs: anvil_trace
-                        .struct_logs
-                        .into_iter()
-                        .map(|step| {
-                            zkevm_types::GethExecStep {
-                                pc: zkevm_types::ProgramCounter(
-                                    usize::try_from(step.pc).expect("error converting pc"),
-                                ),
-                                op: zkevm_types::OpcodeId::from_str(&step.op.as_str()).unwrap(),
-                                gas: zkevm_types::Gas(step.gas),
-                                gas_cost: zkevm_types::GasCost(step.gas_cost),
-                                refund: zkevm_types::Gas(step.refund_counter.unwrap_or(0)),
-                                depth: u16::try_from(step.depth).expect("error converting depth"),
-                                error: step.error,
-                                stack: zkevm_types::Stack(
-                                    step.stack
-                                        .unwrap_or(Vec::new())
-                                        .into_iter()
-                                        .map(|w| w.to_zkevm_type())
-                                        .collect(),
-                                ),
-                                memory: zkevm_types::Memory::default(), // memory is not enabled
-                                storage: {
-                                    let tree = step.storage.unwrap_or_default();
-                                    let mut hash_map =
-                                        HashMap::<zkevm_types::Word, zkevm_types::Word>::new();
-                                    for (key, value) in &tree {
-                                        hash_map.insert(key.to_zkevm_type(), value.to_zkevm_type());
-                                    }
-                                    zkevm_types::Storage(hash_map)
-                                },
-                            }
-                        })
-                        .collect(),
-                }
-            } else {
-                panic!("unknown value in trace")
+        if let ethers::types::GethTrace::Known(ethers::types::GethTraceFrame::Default(
+            anvil_trace,
+        )) = self.to_owned()
+        {
+            zkevm_types::GethExecTrace {
+                gas: zkevm_types::Gas(anvil_trace.gas.as_u64()),
+                failed: anvil_trace.failed,
+                return_value: hex::encode(anvil_trace.return_value.as_ref()), // TODO see if 0x adjustment is needed
+                struct_logs: anvil_trace
+                    .struct_logs
+                    .into_iter()
+                    .map(|step| {
+                        zkevm_types::GethExecStep {
+                            pc: zkevm_types::ProgramCounter(
+                                usize::try_from(step.pc).expect("error converting pc"),
+                            ),
+                            op: zkevm_types::OpcodeId::from_str(step.op.as_str()).unwrap(),
+                            gas: zkevm_types::Gas(step.gas),
+                            gas_cost: zkevm_types::GasCost(step.gas_cost),
+                            refund: zkevm_types::Gas(step.refund_counter.unwrap_or(0)),
+                            depth: u16::try_from(step.depth).expect("error converting depth"),
+                            error: step.error,
+                            stack: zkevm_types::Stack(
+                                step.stack
+                                    .unwrap_or(Vec::new())
+                                    .into_iter()
+                                    .map(|w| w.to_zkevm_type())
+                                    .collect(),
+                            ),
+                            memory: zkevm_types::Memory::default(), // memory is not enabled
+                            storage: {
+                                let tree = step.storage.unwrap_or_default();
+                                let mut hash_map =
+                                    HashMap::<zkevm_types::Word, zkevm_types::Word>::new();
+                                for (key, value) in &tree {
+                                    hash_map.insert(key.to_zkevm_type(), value.to_zkevm_type());
+                                }
+                                zkevm_types::Storage(hash_map)
+                            },
+                        }
+                    })
+                    .collect(),
             }
         } else {
             panic!("unknown value in trace")
@@ -307,10 +303,7 @@ pub trait ConversionReverse<T> {
 }
 
 pub fn convert_option_reverse<A: ConversionReverse<Z>, Z>(some_val: Option<A>) -> Option<Z> {
-    match some_val {
-        Some(val) => Some(val.to_anvil_type()),
-        None => None,
-    }
+    some_val.map(|val| val.to_anvil_type())
 }
 
 impl ConversionReverse<anvil_types::H160> for zkevm_types::H160 {

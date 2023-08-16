@@ -131,6 +131,10 @@ impl Nibbles {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl fmt::Display for Nibbles {
@@ -140,7 +144,7 @@ impl fmt::Display for Nibbles {
             "Nibbles({})",
             self.0
                 .iter()
-                .map(|nibble| format!("{}", nibble))
+                .map(|nibble| format!("{nibble}"))
                 .collect::<Vec<_>>()
                 .join(", ")
         )
@@ -227,7 +231,7 @@ mod tests {
             hex::encode(nibbles.to_raw_path()),
             hex::encode(vec![0x12, 0x34, 0x56])
         );
-        assert_eq!(terminator, true);
+        assert!(terminator);
     }
 
     #[test]
@@ -239,7 +243,7 @@ mod tests {
             hex::encode(nibbles.to_raw_path()),
             hex::encode(Bytes::from(vec![0x12, 0x34, 0x56]))
         );
-        assert_eq!(terminator, false);
+        assert!(!terminator);
     }
 
     #[test]
@@ -251,7 +255,7 @@ mod tests {
             hex::encode(Bytes::from(vec![0x02, 0x34, 0x56]))
         );
         assert_eq!(nibbles.to_u4_vec(), vec![2, 3, 4, 5, 6]);
-        assert_eq!(terminator, false);
+        assert!(!terminator);
     }
 
     #[test]
@@ -263,7 +267,7 @@ mod tests {
             hex::encode(Bytes::from(vec![0x02, 0x34, 0x56]))
         );
         assert_eq!(nibbles.to_u4_vec(), vec![2, 3, 4, 5, 6]);
-        assert_eq!(terminator, true);
+        assert!(terminator);
     }
 
     #[test]

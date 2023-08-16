@@ -120,7 +120,7 @@ async fn main() {
 
     let chain_id = builder.anvil.eth_chain_id().unwrap().unwrap();
     let block_number = builder.anvil.block_number().unwrap();
-    println!("chain_id: {:?}, block_number: {:?}", chain_id, block_number);
+    println!("chain_id: {chain_id:?}, block_number: {block_number:?}");
 
     let hash = builder
         .anvil
@@ -161,8 +161,7 @@ async fn main() {
                 tx_id: _,
                 committed_value: _,
             } => {
-                if account_address.to_owned() == args.challenge_address
-                    && storage_key.to_owned() == args.challenge_slot
+                if *account_address == args.challenge_address && *storage_key == args.challenge_slot
                 {
                     witness.challenge_rw_index = Some(i);
                     break;
@@ -182,8 +181,8 @@ async fn main() {
     let k = log2_ceil(64 + rows_needed);
     let instance = circuit.instance();
     if args.print {
-        println!("block witness: {:#?}", witness);
-        println!("instance: {:#?}", instance);
+        println!("block witness: {witness:#?}");
+        println!("instance: {instance:#?}");
     }
 
     if args.mock {
@@ -264,8 +263,8 @@ impl RealProver {
             Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
             _,
         >(
-            &self.general_params.as_mut().unwrap(),
-            &self.circuit_proving_key.as_mut().unwrap(),
+            self.general_params.as_mut().unwrap(),
+            self.circuit_proving_key.as_mut().unwrap(),
             &[circuit],
             &[&instance_refs],
             self.rng.to_owned().unwrap(),

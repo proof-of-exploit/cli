@@ -123,12 +123,11 @@ impl AnvilClient {
             .get_proof(
                 address.to_anvil_type(),
                 keys.iter().map(|key| key.to_anvil_type()).collect(),
-                match block_number {
-                    Some(_block_number) => Some(anvil_types::BlockId::Number(
-                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
-                    )),
-                    None => None,
-                },
+                block_number.map(|_block_number| {
+                    anvil_types::BlockId::Number(anvil_types::BlockNumber::Number(
+                        anvil_types::U64::from(_block_number),
+                    ))
+                }),
             )
             .await?
             .to_zkevm_type())
@@ -195,12 +194,11 @@ impl AnvilClient {
             .eth_api
             .balance(
                 address.to_anvil_type(),
-                match block_number {
-                    Some(_block_number) => Some(anvil_types::BlockId::Number(
-                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
-                    )),
-                    None => None,
-                },
+                block_number.map(|_block_number| {
+                    anvil_types::BlockId::Number(anvil_types::BlockNumber::Number(
+                        anvil_types::U64::from(_block_number),
+                    ))
+                }),
             )
             .await?
             .to_zkevm_type())
@@ -215,12 +213,11 @@ impl AnvilClient {
             .eth_api
             .transaction_count(
                 address.to_anvil_type(),
-                match block_number {
-                    Some(_block_number) => Some(anvil_types::BlockId::Number(
-                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
-                    )),
-                    None => None,
-                },
+                block_number.map(|_block_number| {
+                    anvil_types::BlockId::Number(anvil_types::BlockNumber::Number(
+                        anvil_types::U64::from(_block_number),
+                    ))
+                }),
             )
             .await?
             .to_zkevm_type())
@@ -237,12 +234,11 @@ impl AnvilClient {
             .storage_at(
                 address.to_anvil_type(),
                 index.to_anvil_type(),
-                match block_number {
-                    Some(_block_number) => Some(anvil_types::BlockId::Number(
-                        anvil_types::BlockNumber::Number(anvil_types::U64::from(_block_number)),
-                    )),
-                    None => None,
-                },
+                block_number.map(|_block_number| {
+                    anvil_types::BlockId::Number(anvil_types::BlockNumber::Number(
+                        anvil_types::U64::from(_block_number),
+                    ))
+                }),
             )
             .await?
             .to_zkevm_type())
@@ -284,7 +280,7 @@ impl AnvilClient {
             .to_zkevm_type())
     }
 
-    pub async fn mine_one(&self) -> () {
+    pub async fn mine_one(&self) {
         self.eth_api.mine_one().await;
     }
 

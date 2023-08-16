@@ -28,7 +28,7 @@ async fn main() {
 
     let chain_id = builder.anvil.eth_chain_id().unwrap().unwrap();
     let block_number = builder.anvil.block_number().unwrap();
-    println!("chain_id: {:?}, block_number: {:?}", chain_id, block_number);
+    println!("chain_id: {chain_id:?}, block_number: {block_number:?}");
 
     let raw_tx = "0xf88c8084ee6b28008301388094df03add8bc8046df3b74a538c57c130cefb89b8680a46057361d00000000000000000000000000000000000000000000000000000000000000018401546d72a0f5b7e54553deeb044429b394595581501209a627beef020e764426aa0955e93aa00927cb7de78c15d2715de9a5cbde171c7202755864656cd4726ac43c76a9000a";
     let hash = builder
@@ -54,18 +54,18 @@ async fn main() {
         .unwrap();
     witness.randomness = Fr::from(0x100);
     witness.challenge_rw_index = Some(0);
-    println!("witness {:#?}", witness);
+    println!("witness {witness:#?}");
     let (_, rows_needed) =
         SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::min_num_rows_block(&witness);
     let circuit =
         SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::new_from_block(&witness);
     let k = log2_ceil(64 + rows_needed);
     let instance = circuit.instance();
-    println!("instance {:#?}", instance);
+    println!("instance {instance:#?}");
 
     println!("proving");
     let prover = MockProver::run(k, &circuit, instance).unwrap();
     println!("proving done, now verifying");
-    let _res = prover.verify_par().unwrap();
+    prover.verify_par().unwrap();
     println!("verifying done");
 }

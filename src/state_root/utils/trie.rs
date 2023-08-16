@@ -13,24 +13,17 @@ use ethers::{
 const EMPTY_ROOT_STR: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 const EMPTY_VALUE_STR: &str = "0x00";
 
-#[derive(Clone, Debug, EthDisplay, PartialEq)]
+#[derive(Clone, Debug, Default, EthDisplay, PartialEq)]
 pub struct Trie {
     pub root: Option<H256>,
     nodes: HashMap<H256, NodeData>,
 }
 
 impl Trie {
-    pub fn new() -> Self {
-        Trie {
-            root: None,
-            nodes: HashMap::new(),
-        }
-    }
-
     pub fn from_root(root: H256) -> Self {
         Trie {
             root: Some(root),
-            nodes: HashMap::new(),
+            nodes: HashMap::default(),
         }
     }
 
@@ -67,7 +60,7 @@ impl Trie {
                 NodeData::Branch(arr) => {
                     let nibble = u4_vec[i] as usize;
                     if arr[nibble].is_some() {
-                        hash_current = arr[nibble as usize].unwrap();
+                        hash_current = arr[nibble].unwrap();
                     } else {
                         // key value is not in the root, it is resolving to empty
                         return Ok(EMPTY_VALUE_STR.parse().unwrap());
@@ -90,7 +83,7 @@ impl Trie {
         let mut hash_current = self.root.unwrap();
         let mut i = 0;
         let u4_vec = path.to_u4_vec();
-        let mut hash_vec = Vec::new();
+        let mut hash_vec = Vec::default();
         hash_vec.push(hash_current);
 
         // loop that traverses in, and finds a Leaf node or errors out
@@ -112,7 +105,7 @@ impl Trie {
                 NodeData::Branch(arr) => {
                     let nibble = u4_vec[i] as usize;
                     if arr[nibble].is_some() {
-                        hash_current = arr[nibble as usize].unwrap();
+                        hash_current = arr[nibble].unwrap();
                     } else {
                         // key value is not in the root, it is resolving to empty
                         // TODO here we have to alter the trie to add an entry
@@ -184,7 +177,7 @@ impl Trie {
         value_: Bytes,
         proof: Vec<Bytes>,
     ) -> Result<(), Error> {
-        if proof.len() == 0 {
+        if proof.is_empty() {
             if self.root.is_some() {
                 if self.root.unwrap() != EMPTY_ROOT_STR.parse().unwrap() {
                     // enforce proof to be empt
@@ -208,7 +201,7 @@ impl Trie {
         }
 
         let mut root = self.root.unwrap();
-        let mut key_current = key_.clone();
+        let mut key_current = key_;
 
         for (i, proof_entry) in proof.iter().enumerate() {
             let hash_node_data = H256::from(keccak256(proof_entry.clone()));
@@ -248,8 +241,7 @@ impl Trie {
                     for _child in arr {
                         // find the appropriate child node in branch
                         let hash_next = H256::from(keccak256(proof[i + 1].clone()));
-                        if _child.is_some() {
-                            let child = _child.unwrap();
+                        if let Some(child) = _child {
                             if child == hash_next {
                                 root = child;
                                 // skip one nibble in the current key for branch nodes
@@ -272,14 +264,15 @@ impl Trie {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq)]
 pub enum NodeData {
-    // Unknown,
     Leaf { key: Nibbles, value: Bytes },
     Branch([Option<H256>; 17]),
     Extension { key: Nibbles, node: H256 },
 }
 
+#[allow(clippy::needless_range_loop)]
 impl NodeData {
     pub fn from_raw_rlp(raw: Bytes) -> Result<Self, Error> {
         let rlp = Rlp::new(&raw);
@@ -289,7 +282,7 @@ impl NodeData {
                 let val_0 = Bytes::from(rlp.at(0)?.data()?.to_owned());
                 let val_1 = Bytes::from(rlp.at(1)?.data()?.to_owned());
 
-                let (key, terminator) = Nibbles::from_encoded_path_with_terminator(val_0.clone())?;
+                let (key, terminator) = Nibbles::from_encoded_path_with_terminator(val_0)?;
                 if terminator {
                     NodeData::Leaf { key, value: val_1 }
                 } else {
@@ -324,7 +317,7 @@ impl NodeData {
     }
 
     pub fn to_raw_rlp(&self) -> Result<Bytes, Error> {
-        let mut rlp_stream = rlp::RlpStream::new();
+        let mut rlp_stream = rlp::RlpStream::default();
         match self {
             NodeData::Leaf { key, value } => {
                 let key_bm = BytesMut::from(key.encode_path(true).to_vec().as_slice());
@@ -339,7 +332,7 @@ impl NodeData {
                     let bm = if entry.is_some() {
                         BytesMut::from(entry.to_owned().unwrap().as_bytes())
                     } else {
-                        BytesMut::new()
+                        BytesMut::default()
                     };
                     rlp_stream.append(&bm);
                 }
@@ -358,7 +351,7 @@ impl NodeData {
     pub fn set_value_on_leaf(&mut self, new_value: Bytes) -> Result<(), Error> {
         match self {
             NodeData::Leaf { key: _, value } => {
-                *value = new_value.clone();
+                *value = new_value;
                 Ok(())
             }
             _ => Err(Error::InternalError(
@@ -372,30 +365,28 @@ impl fmt::Debug for NodeData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let val = match self {
             // NodeData::Unknown => format!("Unknown"),
-            NodeData::Leaf { key, value } => format!(
-                "Leaf(key={}, value={:?})",
-                key,
-                hex::encode(value.to_owned())
-            ),
+            NodeData::Leaf { key, value } => {
+                format!("Leaf(key={}, value={:?})", key, hex::encode(value))
+            }
             NodeData::Branch(branch) => format!(
                 "Branch({:?}",
                 branch
                     .iter()
                     .map(|node| {
                         if let Some(node) = node {
-                            format!("{:?}", node)
+                            format!("{node:?}")
                         } else {
-                            format!("None")
+                            "None".to_string()
                         }
                     })
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
             NodeData::Extension { key, node } => {
-                format!("Extension(key={}, node={:?})", key, node)
+                format!("Extension(key={key}, node={node:?})")
             }
         };
-        write!(f, "NodeData::{}", val)
+        write!(f, "NodeData::{val}")
     }
 }
 
@@ -414,7 +405,7 @@ mod tests {
         )
         .unwrap();
 
-        println!("node_data {:#?}", node_data);
+        println!("node_data {node_data:#?}");
 
         assert_eq!(
             node_data,
@@ -460,7 +451,7 @@ mod tests {
         )
         .unwrap();
 
-        println!("node_data {:#?}", node_data);
+        println!("node_data {node_data:#?}");
 
         assert_eq!(
             node_data,
@@ -490,7 +481,7 @@ mod tests {
         )
         .unwrap();
 
-        println!("node_data {:#?}", node_data);
+        println!("node_data {node_data:#?}");
 
         assert_eq!(
             node_data,
@@ -557,13 +548,13 @@ mod tests {
         );
         assert!(trie.nodes.get(&trie.root.unwrap()).is_none());
 
-        println!("trie {:#?}", trie);
+        println!("trie {trie:#?}");
         // assert!(false);
     }
 
     #[test]
     pub fn test_trie_new_one_element_1() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path(
@@ -594,13 +585,13 @@ mod tests {
             }
         );
 
-        println!("trie {:#?}", trie);
+        println!("trie {trie:#?}");
         // assert!(false);
     }
 
     #[test]
     pub fn test_trie_new_two_element_1() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str("0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0" // hash(pad(5))
@@ -667,13 +658,13 @@ mod tests {
             .nodes_get("0x9487c8e7f28469b9f72cd6be094b555c3882c0653f11b208ff76bf8caee50432")
             .is_none());
 
-        println!("trie {:#?}", trie);
+        println!("trie {trie:#?}");
         // assert!(false);
     }
 
     #[test]
     pub fn test_trie_new_three_element_1() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str(
@@ -793,13 +784,13 @@ mod tests {
             }
         );
 
-        println!("trie {:#?}", trie);
+        println!("trie {trie:#?}");
         // assert!(false);
     }
 
     #[test]
     pub fn test_trie_load_two_proofs_1() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str(
@@ -885,13 +876,13 @@ mod tests {
             }
         );
 
-        println!("trie {:#?}", trie);
+        println!("trie {trie:#?}");
         // assert!(false);
     }
 
     #[test]
     pub fn test_trie_get_value_1() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str(
@@ -932,7 +923,7 @@ mod tests {
 
     #[test]
     pub fn test_trie_get_value_2() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str(
@@ -966,7 +957,7 @@ mod tests {
 
     #[test]
     pub fn test_trie_get_value_3_value_not_proved() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str(
@@ -988,7 +979,7 @@ mod tests {
 
     #[test]
     pub fn test_trie_get_value_4_empty_value() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str(
@@ -1012,7 +1003,7 @@ mod tests {
 
     #[test]
     pub fn test_trie_set_value_1() {
-        let mut trie = Trie::new();
+        let mut trie = Trie::default();
 
         trie.load_proof(
             Nibbles::from_raw_path_str(
@@ -1036,7 +1027,7 @@ mod tests {
             ],
         ).unwrap();
 
-        println!("trie before {:#?}", trie);
+        println!("trie before {trie:#?}");
         assert_eq!(
             hex::encode(trie.root.unwrap()),
             "e730900f060334776424339bad2d8fb6f53d8b2ddbf991f492d852fb119addc0"
@@ -1050,7 +1041,7 @@ mod tests {
         )
         .unwrap();
 
-        println!("trie after {:#?}", trie);
+        println!("trie after {trie:#?}");
         assert_eq!(
             hex::encode(trie.root.unwrap()),
             "a8c351fd6909c41a53b213f026c3150740e6a0ce1229378b4da9cbde09981812"

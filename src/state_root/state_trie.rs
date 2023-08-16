@@ -12,24 +12,17 @@ use super::{
     storage_trie::StorageTrie,
 };
 
-#[derive(Clone, Debug, EthDisplay, PartialEq)]
+#[derive(Clone, Debug, Default, EthDisplay, PartialEq)]
 pub struct StateTrie {
     pub account_trie: AccountTrie,
     storage_tries: HashMap<H256, StorageTrie>,
 }
 
 impl StateTrie {
-    pub fn new() -> Self {
-        StateTrie {
-            account_trie: AccountTrie::new(),
-            storage_tries: HashMap::new(),
-        }
-    }
-
     pub fn from_root(root: H256) -> Self {
         StateTrie {
             account_trie: AccountTrie::from_root(root),
-            storage_tries: HashMap::new(),
+            storage_tries: HashMap::default(),
         }
     }
 
@@ -101,7 +94,7 @@ mod tests {
         // a contract was deployed on geth --dev
         // slot[1] = 2
         // slot[2] = 4
-        let mut trie = StateTrie::new();
+        let mut trie = StateTrie::default();
 
         // contract
         trie.load_proof(EIP1186ProofResponse {
@@ -165,7 +158,7 @@ mod tests {
             "60bfaa2e6e61adcd645ce3aefc05c3bda2ed31f95fdd8bd5422dc2b8c78ae909"
         );
 
-        println!("before {}", trie);
+        println!("before {trie}");
 
         trie.account_trie
             .set_nonce(
@@ -194,7 +187,7 @@ mod tests {
         )
         .unwrap();
 
-        println!("after {}", trie);
+        println!("after {trie}");
 
         assert_eq!(
             hex::encode(trie.root().unwrap()),
