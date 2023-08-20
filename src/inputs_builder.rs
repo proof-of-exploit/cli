@@ -11,18 +11,16 @@ pub use bus_mapping::{
 };
 use eth_types::Fr;
 use ethers::utils::keccak256;
+use partial_mpt::StateTrie;
 use zkevm_circuits::witness::block_convert;
 
 use futures::future;
 
+use crate::types::zkevm_types::*;
 use crate::{
-    anvil::{
-        conversion::{Conversion, ConversionReverse},
-        AnvilClient,
-    },
+    anvil::{conversion::ConversionReverse, AnvilClient},
     error::Error,
 };
-use crate::{state_root::state_trie::StateTrie, types::zkevm_types::*};
 
 #[allow(dead_code)]
 pub struct BuilderClient {
@@ -281,17 +279,15 @@ impl BuilderClient {
             let new_balance = self.anvil.get_balance(address, Some(block_number)).await?;
             let new_nonce = self.anvil.get_nonce(address, Some(block_number)).await?;
 
-            let mut account_data = trie
-                .account_trie
-                .get_account_data(address.to_anvil_type())?;
+            let mut account_data = trie.account_trie.get(address.to_anvil_type())?;
             account_data.balance = new_balance.to_anvil_type();
             account_data.code_hash = new_code_hash.to_anvil_type();
             account_data.nonce = new_nonce.to_anvil_type();
             trie.account_trie
-                .set_account_data(address.to_anvil_type(), account_data)?;
+                .set(address.to_anvil_type(), account_data)?;
         }
 
-        Ok(trie.root().unwrap().to_zkevm_type())
+        Ok(trie.root().unwrap())
     }
 }
 

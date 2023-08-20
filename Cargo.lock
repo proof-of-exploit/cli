@@ -3704,6 +3704,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "partial-mpt"
+version = "0.1.0"
+source = "git+https://github.com/zemse/partial-mpt?branch=main#603872ff24fdccb5dda0320d863e60b31fa7d695"
+dependencies = [
+ "bytes",
+ "ethers",
+ "tokio",
+]
+
+[[package]]
 name = "password-hash"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6259,6 +6269,7 @@ dependencies = [
  "futures",
  "halo2_proofs",
  "itertools",
+ "partial-mpt",
  "rand_chacha 0.3.1",
  "tokio",
  "zkevm-circuits",
