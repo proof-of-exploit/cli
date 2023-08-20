@@ -48,13 +48,8 @@ impl AnvilClient {
         &self,
         block_number: usize,
     ) -> Result<Option<zkevm_types::EthBlockHeader>, Error> {
-        match self
-            .eth_api
-            .block_by_number(anvil_types::BlockNumber::Number(anvil_types::U64::from(
-                block_number,
-            )))
-            .await?
-        {
+        let b = anvil_types::BlockNumber::Number(anvil_types::U64::from(block_number));
+        match self.eth_api.block_by_number(b).await? {
             Some(block) => Ok(Some(block.to_zkevm_type())),
             None => Ok(None),
         }

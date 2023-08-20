@@ -1,6 +1,7 @@
+use bus_mapping::circuit_input_builder::FixedCParams;
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
-use zk_proof_of_evm_exploit::{BuilderClient, CircuitsParams};
+use zk_proof_of_evm_exploit::BuilderClient;
 use zkevm_circuits::{
     super_circuit::SuperCircuit,
     util::{log2_ceil, SubCircuit},
@@ -11,9 +12,8 @@ async fn main() {
 
     const MAX_TXS: usize = 1;
     const MAX_CALLDATA: usize = 256;
-    const MOCK_RANDOMNESS: u64 = 0x100;
 
-    let builder = BuilderClient::from_circuits_params(CircuitsParams {
+    let builder = BuilderClient::from_circuits_params(FixedCParams {
         max_rws: 357,
         max_txs: MAX_TXS,
         max_calldata: MAX_CALLDATA,
@@ -53,12 +53,10 @@ async fn main() {
         .await
         .unwrap();
     witness.randomness = Fr::from(0x100);
-    witness.challenge_rw_index = Some(0);
+
     println!("witness {witness:#?}");
-    let (_, rows_needed) =
-        SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::min_num_rows_block(&witness);
-    let circuit =
-        SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::new_from_block(&witness);
+    let (_, rows_needed) = SuperCircuit::<Fr>::min_num_rows_block(&witness);
+    let circuit = SuperCircuit::<Fr>::new_from_block(&witness);
     let k = log2_ceil(64 + rows_needed);
     let instance = circuit.instance();
     println!("instance {instance:#?}");

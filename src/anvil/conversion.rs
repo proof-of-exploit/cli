@@ -1,9 +1,8 @@
 use std::{collections::HashMap, str::FromStr};
 
-use ethers::{types::BigEndianHash, utils::hex};
-use ethers_core::types as zkevm_types_2;
-
 use crate::types::{anvil_types, zkevm_types};
+
+use ethers::{types::BigEndianHash, utils::hex};
 
 // Conversion from anvil types to zkevm types
 pub trait Conversion<T> {
@@ -66,18 +65,18 @@ impl Conversion<zkevm_types::Bytes> for anvil_types::Bytes {
     }
 }
 
-impl Conversion<zkevm_types_2::Bloom> for anvil_types::Bloom {
-    fn to_zkevm_type(&self) -> zkevm_types_2::Bloom {
-        zkevm_types_2::Bloom::from_slice(&self.0)
+impl Conversion<zkevm_types::Bloom> for anvil_types::Bloom {
+    fn to_zkevm_type(&self) -> zkevm_types::Bloom {
+        zkevm_types::Bloom::from_slice(&self.0)
     }
 }
 
-impl Conversion<zkevm_types_2::transaction::eip2930::AccessList> for anvil_types::AccessList {
-    fn to_zkevm_type(&self) -> zkevm_types_2::transaction::eip2930::AccessList {
-        zkevm_types_2::transaction::eip2930::AccessList(
+impl Conversion<zkevm_types::AccessList> for anvil_types::AccessList {
+    fn to_zkevm_type(&self) -> zkevm_types::AccessList {
+        zkevm_types::AccessList(
             self.0
                 .iter()
-                .map(|item| zkevm_types_2::transaction::eip2930::AccessListItem {
+                .map(|item| zkevm_types::AccessListItem {
                     address: item.address.to_zkevm_type(),
                     storage_keys: item
                         .storage_keys
@@ -91,8 +90,8 @@ impl Conversion<zkevm_types_2::transaction::eip2930::AccessList> for anvil_types
 }
 
 impl Conversion<zkevm_types::Transaction> for anvil_types::Transaction {
-    fn to_zkevm_type(&self) -> zkevm_types_2::Transaction {
-        zkevm_types_2::Transaction {
+    fn to_zkevm_type(&self) -> zkevm_types::Transaction {
+        zkevm_types::Transaction {
             hash: self.hash.to_zkevm_type(),
             nonce: self.nonce.to_zkevm_type(),
             block_hash: convert_option(self.block_hash),
@@ -115,7 +114,7 @@ impl Conversion<zkevm_types::Transaction> for anvil_types::Transaction {
             max_priority_fee_per_gas: convert_option(self.max_priority_fee_per_gas),
             max_fee_per_gas: convert_option(self.max_fee_per_gas),
             chain_id: convert_option(self.chain_id),
-            other: zkevm_types_2::OtherFields::default(),
+            other: zkevm_types::OtherFields::default(),
         }
     }
 }
@@ -149,14 +148,19 @@ impl<A: Conversion<Z>, Z> Conversion<zkevm_types::Block<Z>> for anvil_types::Blo
             mix_hash: convert_option(self.mix_hash),
             nonce: convert_option(self.nonce),
             base_fee_per_gas: convert_option(self.base_fee_per_gas),
-            other: zkevm_types_2::OtherFields::default(),
+            other: zkevm_types::OtherFields::default(),
+            withdrawals_root: convert_option(self.withdrawals_root),
+            withdrawals: self
+                .withdrawals
+                .as_ref()
+                .map(|ws| ws.iter().map(|w| w.to_zkevm_type()).collect()),
         }
     }
 }
 
 impl Conversion<zkevm_types::TransactionReceipt> for anvil_types::TransactionReceipt {
     fn to_zkevm_type(&self) -> zkevm_types::TransactionReceipt {
-        zkevm_types_2::TransactionReceipt {
+        zkevm_types::TransactionReceipt {
             transaction_hash: self.transaction_hash.to_zkevm_type(),
             transaction_index: self.transaction_index.to_zkevm_type(),
             block_hash: convert_option(self.block_hash),
@@ -172,6 +176,7 @@ impl Conversion<zkevm_types::TransactionReceipt> for anvil_types::TransactionRec
             logs_bloom: self.logs_bloom.to_zkevm_type(),
             transaction_type: convert_option(self.transaction_type),
             effective_gas_price: convert_option(self.effective_gas_price),
+            other: zkevm_types::OtherFields::default(),
         }
     }
 }
@@ -201,7 +206,7 @@ impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
         )) = self.to_owned()
         {
             zkevm_types::GethExecTrace {
-                gas: zkevm_types::Gas(anvil_trace.gas.as_u64()),
+                gas: anvil_trace.gas.as_u64(),
                 failed: anvil_trace.failed,
                 return_value: hex::encode(anvil_trace.return_value.as_ref()), // TODO see if 0x adjustment is needed
                 struct_logs: anvil_trace
@@ -209,13 +214,11 @@ impl Conversion<zkevm_types::GethExecTrace> for anvil_types::GethTrace {
                     .into_iter()
                     .map(|step| {
                         zkevm_types::GethExecStep {
-                            pc: zkevm_types::ProgramCounter(
-                                usize::try_from(step.pc).expect("error converting pc"),
-                            ),
+                            pc: step.pc,
                             op: zkevm_types::OpcodeId::from_str(step.op.as_str()).unwrap(),
-                            gas: zkevm_types::Gas(step.gas),
-                            gas_cost: zkevm_types::GasCost(step.gas_cost),
-                            refund: zkevm_types::Gas(step.refund_counter.unwrap_or(0)),
+                            gas: step.gas,
+                            gas_cost: step.gas_cost,
+                            refund: step.refund_counter.unwrap_or(0),
                             depth: u16::try_from(step.depth).expect("error converting depth"),
                             error: step.error,
                             stack: zkevm_types::Stack(
@@ -251,7 +254,7 @@ impl Conversion<zkevm_types::EIP1186ProofResponse> for anvil_types::EIP1186Proof
             address: self.address.to_zkevm_type(),
             balance: self.balance.to_zkevm_type(),
             code_hash: self.code_hash.to_zkevm_type(),
-            nonce: zkevm_types::U256::from(self.nonce.as_u64()),
+            nonce: zkevm_types::U64::from(self.nonce.as_u64()),
             storage_hash: self.storage_hash.to_zkevm_type(),
             account_proof: self
                 .account_proof
@@ -293,6 +296,27 @@ impl ConversionReverse<anvil_types::EIP1186ProofResponse> for zkevm_types::EIP11
                     proof: sp.proof.iter().map(|p| p.to_anvil_type()).collect(),
                 })
                 .collect(),
+        }
+    }
+}
+
+impl Conversion<zkevm_types::Withdrawal> for anvil_types::Withdrawal {
+    fn to_zkevm_type(&self) -> zkevm_types::Withdrawal {
+        zkevm_types::Withdrawal {
+            index: self.index,
+            validator_index: self.validator_index,
+            address: self.address,
+            amount: self.amount,
+        }
+    }
+}
+impl ConversionReverse<anvil_types::Withdrawal> for zkevm_types::Withdrawal {
+    fn to_anvil_type(&self) -> anvil_types::Withdrawal {
+        anvil_types::Withdrawal {
+            index: self.index,
+            validator_index: self.validator_index,
+            address: self.address,
+            amount: self.amount,
         }
     }
 }

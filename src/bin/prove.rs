@@ -1,9 +1,11 @@
+use bus_mapping::circuit_input_builder::FixedCParams;
 use clap::Parser;
+use eth_types::Fr;
 use ethers_core::utils::hex;
 use halo2_proofs::{
     dev::MockProver,
-    halo2curves::bn256::{Bn256, Fr, G1Affine},
-    plonk::{create_proof, keygen_pk, keygen_vk, ProvingKey, VerifyingKey},
+    halo2curves::bn256::{Bn256, G1Affine},
+    plonk::{create_proof, keygen_pk, keygen_vk, Circuit, ProvingKey, VerifyingKey},
     poly::{
         commitment::ParamsProver,
         kzg::{
@@ -21,12 +23,10 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use zk_proof_of_evm_exploit::{error::Error, types::zkevm_types::*, BuilderClient, CircuitsParams};
+use zk_proof_of_evm_exploit::{error::Error, types::zkevm_types::*, BuilderClient};
 use zkevm_circuits::{
     super_circuit::SuperCircuit,
-    table::RwTableTag,
     util::{log2_ceil, SubCircuit},
-    witness,
 };
 
 /// Usage:
@@ -93,7 +93,7 @@ struct Args {
     max_bytecode: usize,
     #[arg(long, default_value_t = 1000)]
     max_evm_rows: usize,
-    #[arg(long, default_value_t = 3000)]
+    #[arg(long, default_value_t = 10000)]
     max_keccak_rows: usize,
 }
 
@@ -102,7 +102,7 @@ async fn main() {
     let args = Args::parse();
 
     let builder = BuilderClient::from_config(
-        CircuitsParams {
+        FixedCParams {
             max_rws: args.max_rws,
             max_txs: MAX_TXS,
             max_calldata: MAX_CALLDATA,
@@ -147,37 +147,36 @@ async fn main() {
 
     println!("witness generated");
 
-    let account_storage_rws = witness.rws[RwTableTag::AccountStorage].clone();
+    // let account_storage_rws = witness.rws[Target::Storage].clone();
 
-    for (i, rw) in account_storage_rws.iter().enumerate() {
-        match rw {
-            witness::Rw::AccountStorage {
-                rw_counter: _,
-                is_write: _,
-                account_address,
-                storage_key,
-                value: _,
-                value_prev: _,
-                tx_id: _,
-                committed_value: _,
-            } => {
-                if *account_address == args.challenge_address && *storage_key == args.challenge_slot
-                {
-                    witness.challenge_rw_index = Some(i);
-                    break;
-                }
-            }
-            _ => unreachable!(),
-        }
-    }
+    // for (i, rw) in account_storage_rws.iter().enumerate() {
+    //     match rw {
+    //         witness::Rw::AccountStorage {
+    //             rw_counter: _,
+    //             is_write: _,
+    //             account_address,
+    //             storage_key,
+    //             value: _,
+    //             value_prev: _,
+    //             tx_id: _,
+    //             committed_value: _,
+    //         } => {
+    //             if *account_address == args.challenge_address && *storage_key == args.challenge_slot
+    //             {
+    //                 witness.challenge_rw_index = Some(i);
+    //                 break;
+    //             }
+    //         }
+    //         _ => unreachable!(),
+    //     }
+    // }
 
-    if witness.challenge_rw_index.is_none() {
-        panic!("challenge is not solved, please pass a valid solution");
-    }
+    // if witness.challenge_rw_index.is_none() {
+    //     panic!("challenge is not solved, please pass a valid solution");
+    // }
 
-    let (_, rows_needed) =
-        SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, RANDOMNESS>::min_num_rows_block(&witness);
-    let circuit = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, RANDOMNESS>::new_from_block(&witness);
+    let (_, rows_needed) = SuperCircuit::<Fr>::min_num_rows_block(&witness);
+    let circuit = SuperCircuit::<Fr>::new_from_block(&witness);
     let k = log2_ceil(64 + rows_needed);
     let instance = circuit.instance();
     if args.print {
@@ -250,7 +249,7 @@ impl RealProver {
 
     fn prove(
         &mut self,
-        circuit: SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, RANDOMNESS>,
+        circuit: SuperCircuit<Fr>,
         instance: Vec<Vec<Fr>>,
     ) -> Result<Vec<u8>, Error> {
         let instance_refs: Vec<&[Fr]> = instance.iter().map(|v| &v[..]).collect();
@@ -325,10 +324,7 @@ impl RealProver {
         Ok(())
     }
 
-    fn setup_circuit(
-        &mut self,
-        circuit: SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, RANDOMNESS>,
-    ) -> Result<(), Error> {
+    fn setup_circuit(&mut self, circuit: SuperCircuit<Fr>) -> Result<(), Error> {
         let verifying_key_path = self
             .dir_path
             .join(Path::new(&format!("circuit_verifying_key_{}", self.degree)));
@@ -336,10 +332,11 @@ impl RealProver {
             Ok(mut file) => {
                 println!("reading {}", verifying_key_path.display());
                 self.circuit_verifying_key = Some(
-                    VerifyingKey::<G1Affine>::read::<
-                        File,
-                        SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, RANDOMNESS>,
-                    >(&mut file, self.serde_format)
+                    VerifyingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
+                        &mut file,
+                        self.serde_format,
+                        circuit.params(),
+                    )
                     .unwrap(),
                 );
             }
@@ -361,10 +358,11 @@ impl RealProver {
             Ok(mut file) => {
                 println!("reading {}", proving_key_path.display());
                 self.circuit_proving_key = Some(
-                    ProvingKey::<G1Affine>::read::<
-                        File,
-                        SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, RANDOMNESS>,
-                    >(&mut file, self.serde_format)
+                    ProvingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
+                        &mut file,
+                        self.serde_format,
+                        circuit.params(),
+                    )
                     .unwrap(),
                 );
             }

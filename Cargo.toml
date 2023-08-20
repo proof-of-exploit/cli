@@ -5,16 +5,16 @@ edition = "2021"
 
 [dependencies]
 # anvil
-anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ], rev = "6570a4c" }
-anvil-core = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil-core",  features = [ "default" ], rev = "6570a4c" }
-ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["ws"], rev = "80ac394" }
+anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ], rev = "dea5405" }
+anvil-core = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil-core",  features = [ "default" ], rev = "dea5405" }
+ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["ws"] }
 
 # zkevm
-bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", branch = "main", features = [ "test" ] }
-eth-types = { git = "https://github.com/zemse/zkevm-circuits", branch = "main" }
-zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", branch = "main", features = [ "test" ] }
-ethers-core = "0.17.0"
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" } 
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main", features = [ "test" ] }
+eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main" }
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main" }
+ethers-core = "2.0.7"
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
 itertools = "0.10"
 rand_chacha = "0.3"
 
@@ -25,7 +25,13 @@ dotenv = "0.15.0"
 bytes = "1.1.0"
 clap = { version = "4.0", features = ["derive"] }
 
-[patch."https://github.com/zemse/zkevm-circuits"]
-bus-mapping = { path = "../zkevm-circuits/bus-mapping", features = [ "test" ] }
-eth-types = { path = "../zkevm-circuits/eth-types" }
-zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", features = [ "test" ] }
+[patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit", features = [ "test" ] }
+eth-types = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
+zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
+
+# for local development only
+# [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+# bus-mapping = { path = "../zkevm-circuits/bus-mapping" }
+# eth-types = { path = "../zkevm-circuits/eth-types" }
+# zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits" }
