@@ -8,6 +8,7 @@ pub use bus_mapping::{
     },
     operation::RW,
     state_db::{CodeDB, StateDB},
+    POX_CHALLENGE_ADDRESS,
 };
 use eth_types::Fr;
 use ethers::utils::keccak256;
@@ -47,6 +48,15 @@ pub fn get_state_accesses(
         let tx_access_trace = gen_state_access_trace(block, tx, geth_trace)?;
         block_access_trace.extend(tx_access_trace);
     }
+
+    // the Challenge address has no code on the mainnet, however in the private block we assign it
+    block_access_trace.push(Access::new(
+        None,
+        RW::WRITE,
+        AccessValue::Code {
+            address: POX_CHALLENGE_ADDRESS,
+        },
+    ));
 
     Ok(AccessSet::from(block_access_trace))
 }
@@ -88,14 +98,18 @@ impl BuilderClient {
     pub async fn gen_witness(
         &self,
         block_number: usize,
+        pox_challenge_bytecode: Bytes,
     ) -> Result<zkevm_circuits::witness::Block<Fr>, Error> {
-        let (circuit_input_builder, _) = self.gen_inputs(block_number).await?;
+        let (circuit_input_builder, _) = self
+            .gen_inputs(block_number, pox_challenge_bytecode)
+            .await?;
         Ok(block_convert::<Fr>(&circuit_input_builder)?)
     }
 
     pub async fn gen_inputs(
         &self,
         block_number: usize,
+        pox_challenge_bytecode: Bytes,
     ) -> Result<(CircuitInputBuilder<FixedCParams>, EthBlockFull), Error> {
         let (mut block, traces, history_hashes, prev_state_root) =
             self.get_block(block_number).await?;
@@ -112,10 +126,12 @@ impl BuilderClient {
             &traces,
             history_hashes,
             prev_state_root,
+            pox_challenge_bytecode,
         )?;
         Ok((builder, block))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn gen_inputs_from_state(
         &self,
         sdb: StateDB,
@@ -124,8 +140,15 @@ impl BuilderClient {
         geth_traces: &[GethExecTrace],
         history_hashes: Vec<Word>,
         prev_state_root: Word,
+        pox_challenge_bytecode: Bytes,
     ) -> Result<CircuitInputBuilder<FixedCParams>, Error> {
-        let block = Block::new(self.chain_id, history_hashes, prev_state_root, eth_block)?;
+        let block = Block::new(
+            self.chain_id,
+            history_hashes,
+            prev_state_root,
+            eth_block,
+            pox_challenge_bytecode,
+        )?;
         let mut builder = CircuitInputBuilder::new(sdb, code_db, block, self.circuits_params);
         builder.handle_block(eth_block, geth_traces)?;
         Ok(builder)

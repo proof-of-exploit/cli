@@ -26,13 +26,13 @@ dotenv = "0.15.0"
 bytes = "1.1.0"
 clap = { version = "4.0", features = ["derive"] }
 
-[patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
-bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit", features = [ "test" ] }
-eth-types = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
-zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
+# [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+# bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit", features = [ "test" ] }
+# eth-types = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
+# zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
 
 # for local development only
-# [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
-# bus-mapping = { path = "../zkevm-circuits/bus-mapping" }
-# eth-types = { path = "../zkevm-circuits/eth-types" }
-# zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits" }
+[patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+bus-mapping = { path = "../zkevm-circuits/bus-mapping" }
+eth-types = { path = "../zkevm-circuits/eth-types" }
+zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits" }

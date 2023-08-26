@@ -1,11 +1,13 @@
 use bus_mapping::circuit_input_builder::FixedCParams;
+use eth_types::Bytes;
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
-
+use std::str::FromStr;
 use zk_proof_of_evm_exploit::BuilderClient;
 use zkevm_circuits::{
     super_circuit::SuperCircuit,
     util::{log2_ceil, SubCircuit},
 };
+
 #[tokio::main]
 async fn main() {
     println!("Hello, world!");
@@ -49,7 +51,10 @@ async fn main() {
         .unwrap();
 
     let mut witness = builder
-        .gen_witness(tx.block_number.unwrap().as_usize())
+        .gen_witness(
+            tx.block_number.unwrap().as_usize(),
+            Bytes::from_str("0x30ff").unwrap(),
+        )
         .await
         .unwrap();
     witness.randomness = Fr::from(0x100);

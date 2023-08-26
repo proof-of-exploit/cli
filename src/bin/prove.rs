@@ -51,19 +51,10 @@ struct Args {
     eth_rpc_url: String,
     #[arg(long = "fork-block", help = "Block number for mainnet fork [required]")]
     fork_block_number: usize,
-    #[arg(
-        long,
-        help = "Address of contract containing challenge slot [required]"
-    )]
-    challenge_address: Address,
-    #[arg(
-        long,
-        help = "Storage slot that should be flipped by a correct solution [required]"
-    )]
-    challenge_slot: U256,
+    #[arg(long, help = "Challenge bytecode [required]")]
+    challenge_bytecode: Bytes,
     #[arg(long, help = "Witness tx, which should solve the challenge [required]")]
     raw_tx: String,
-
     // optional args
     #[arg(
         long,
@@ -122,6 +113,16 @@ async fn main() {
     let block_number = builder.anvil.block_number().unwrap();
     println!("chain_id: {chain_id:?}, block_number: {block_number:?}");
 
+    // updating challenge bytecode in local mainnet fork chain
+    builder
+        .anvil
+        .set_code(
+            bus_mapping::POX_CHALLENGE_ADDRESS,
+            args.challenge_bytecode.clone(),
+        )
+        .await
+        .unwrap();
+
     let hash = builder
         .anvil
         .send_raw_transaction(args.raw_tx.parse().unwrap())
@@ -129,6 +130,14 @@ async fn main() {
         .unwrap();
 
     builder.anvil.wait_for_transaction(hash).await.unwrap();
+
+    let rc = builder
+        .anvil
+        .transaction_receipt(hash)
+        .await
+        .unwrap()
+        .unwrap();
+    println!("transaction gas: {}", rc.gas_used.unwrap());
 
     println!("tx confirmed on anvil, hash: {}", hex::encode(hash));
 
@@ -140,12 +149,13 @@ async fn main() {
         .unwrap();
 
     let mut witness = builder
-        .gen_witness(tx.block_number.unwrap().as_usize())
+        .gen_witness(tx.block_number.unwrap().as_usize(), args.challenge_bytecode)
         .await
         .unwrap();
     witness.randomness = Fr::from(RANDOMNESS);
 
     println!("witness generated");
+    // println!("rws: {:#?}", witness.rws);
 
     // let account_storage_rws = witness.rws[Target::Storage].clone();
 
@@ -188,7 +198,7 @@ async fn main() {
         println!("running MockProver");
         let prover = MockProver::run(k, &circuit, instance).unwrap();
         println!("verifying constraints");
-        prover.verify_par().unwrap();
+        prover.assert_satisfied_par();
         println!("success");
     } else {
         let mut dir_path = PathBuf::from_str(".").unwrap();
