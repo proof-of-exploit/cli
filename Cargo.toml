@@ -14,8 +14,10 @@ partial-mpt = { git = "https://github.com/zemse/partial-mpt", branch = "main" }
 bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main", features = [ "test" ] }
 eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main" }
 zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main" }
-ethers-core = "2.0.7"
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+# snark-verifier-sdk = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", rev = "a440ff91" } 
+snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", rev = "a440ff91" } 
+ethers-core = "2.0.7"
 itertools = "0.10"
 rand_chacha = "0.3"
 

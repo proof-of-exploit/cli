@@ -5076,6 +5076,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "snark-verifier"
+version = "0.1.1"
+source = "git+https://github.com/privacy-scaling-explorations/snark-verifier.git?rev=a440ff91#a440ff913adb0d8b11e508bdbecd30b43383c8d0"
+dependencies = [
+ "ecc",
+ "halo2_proofs",
+ "halo2curves",
+ "hex",
+ "itertools",
+ "lazy_static",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "poseidon",
+ "rand 0.8.5",
+ "revm 3.3.0",
+ "sha3 0.10.8",
+]
+
+[[package]]
 name = "socket2"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6265,6 +6285,7 @@ dependencies = [
  "itertools",
  "partial-mpt",
  "rand_chacha 0.3.1",
+ "snark-verifier 0.1.1",
  "tokio",
  "zkevm-circuits",
 ]
@@ -6297,7 +6318,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.10.8",
- "snark-verifier",
+ "snark-verifier 0.1.0",
  "strum 0.24.1",
  "strum_macros 0.24.3",
 ]
