@@ -54,6 +54,7 @@ async fn main() {
         .gen_witness(
             tx.block_number.unwrap().as_usize(),
             Bytes::from_str("0x30ff").unwrap(),
+            Bytes::from_str("0x30ff").unwrap(),
         )
         .await
         .unwrap();

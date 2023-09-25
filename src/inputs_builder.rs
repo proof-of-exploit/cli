@@ -99,9 +99,10 @@ impl BuilderClient {
         &self,
         block_number: usize,
         pox_challenge_bytecode: Bytes,
+        pox_exploit_bytecode: Bytes,
     ) -> Result<zkevm_circuits::witness::Block<Fr>, Error> {
         let (circuit_input_builder, _) = self
-            .gen_inputs(block_number, pox_challenge_bytecode)
+            .gen_inputs(block_number, pox_challenge_bytecode, pox_exploit_bytecode)
             .await?;
         Ok(block_convert::<Fr>(&circuit_input_builder)?)
     }
@@ -110,6 +111,7 @@ impl BuilderClient {
         &self,
         block_number: usize,
         pox_challenge_bytecode: Bytes,
+        pox_exploit_bytecode: Bytes,
     ) -> Result<(CircuitInputBuilder<FixedCParams>, EthBlockFull), Error> {
         let (mut block, traces, history_hashes, prev_state_root) =
             self.get_block(block_number).await?;
@@ -127,6 +129,7 @@ impl BuilderClient {
             history_hashes,
             prev_state_root,
             pox_challenge_bytecode,
+            pox_exploit_bytecode,
         )?;
         Ok((builder, block))
     }
@@ -141,6 +144,7 @@ impl BuilderClient {
         history_hashes: Vec<Word>,
         prev_state_root: Word,
         pox_challenge_bytecode: Bytes,
+        pox_exploit_bytecode: Bytes,
     ) -> Result<CircuitInputBuilder<FixedCParams>, Error> {
         let block = Block::new(
             self.chain_id,
@@ -148,6 +152,7 @@ impl BuilderClient {
             prev_state_root,
             eth_block,
             pox_challenge_bytecode,
+            pox_exploit_bytecode,
         )?;
         let mut builder = CircuitInputBuilder::new(sdb, code_db, block, self.circuits_params);
         builder.handle_block(eth_block, geth_traces)?;

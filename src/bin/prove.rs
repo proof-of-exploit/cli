@@ -40,6 +40,8 @@ struct Args {
     fork_block_number: usize,
     #[arg(long, help = "Challenge bytecode [required]")]
     challenge_bytecode: Bytes,
+    #[arg(long, help = "Exploit bytecode [required]")]
+    exploit_bytecode: Bytes,
     #[arg(long, help = "Witness tx, which should solve the challenge [required]")]
     raw_tx: String,
     // optional args
@@ -136,7 +138,11 @@ async fn main() {
         .unwrap();
 
     let mut witness = builder
-        .gen_witness(tx.block_number.unwrap().as_usize(), args.challenge_bytecode)
+        .gen_witness(
+            tx.block_number.unwrap().as_usize(),
+            args.challenge_bytecode,
+            args.exploit_bytecode,
+        )
         .await
         .unwrap();
     witness.randomness = Fr::from(RANDOMNESS);
