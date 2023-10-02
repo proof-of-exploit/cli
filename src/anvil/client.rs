@@ -169,6 +169,17 @@ impl AnvilClient {
             .to_zkevm_type())
     }
 
+    pub async fn set_balance(
+        &self,
+        address: zkevm_types::Address,
+        balance: zkevm_types::U256,
+    ) -> Result<(), Error> {
+        Ok(self
+            .eth_api
+            .anvil_set_balance(address.to_anvil_type(), balance.to_anvil_type())
+            .await?)
+    }
+
     pub async fn set_code(
         &self,
         address: zkevm_types::Address,
