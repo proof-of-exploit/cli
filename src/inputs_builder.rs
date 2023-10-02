@@ -258,10 +258,10 @@ impl BuilderClient {
             codes.insert(address, code.to_vec());
         }
 
-        let new_state_root = self
-            .gen_state_root(block_number, access_set, &proofs)
-            .await?;
-        Ok((proofs, codes, new_state_root))
+        // let new_state_root = self
+        //     .gen_state_root(block_number, access_set, &proofs)
+        //     .await?;
+        Ok((proofs, codes, H256::zero()))
     }
 
     async fn gen_state_root(
