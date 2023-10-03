@@ -34,11 +34,17 @@ impl Env {
         // PoX params
         let challenge_path = match env::var("CHALLENGE") {
             Ok(val) => Some(val),
-            Err(_) => None,
+            Err(_) => match env::var("CHALLENGE_PATH") {
+                Ok(val) => Some(val),
+                Err(_) => None,
+            },
         };
         let exploit_path = match env::var("EXPLOIT") {
             Ok(val) => Some(val),
-            Err(_) => None,
+            Err(_) => match env::var("EXPLOIT_PATH") {
+                Ok(val) => Some(val),
+                Err(_) => None,
+            },
         };
 
         // zkEVM params
