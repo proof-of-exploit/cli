@@ -1,8 +1,6 @@
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fq, Fr, G1Affine},
-    plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, VerifyingKey,
-    },
+    plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey},
     poly::{
         commitment::ParamsProver,
         kzg::{
@@ -17,6 +15,7 @@ use halo2_proofs::{
     SerdeFormat,
 };
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng, ChaChaRng};
+use serde::{Deserialize, Serialize};
 use snark_verifier::{
     loader::evm::EvmLoader,
     pcs::kzg::{Gwc19, KzgAs, KzgDecidingKey},
@@ -26,14 +25,17 @@ use snark_verifier::{
 use std::{
     fmt::Debug,
     fs::{create_dir_all, File},
-    io::Write,
+    io::{Read, Write},
     path::{Path, PathBuf},
     rc::Rc,
     str::FromStr,
 };
 use zkevm_circuits::{super_circuit::SuperCircuit, util::SubCircuit};
 
-use crate::utils::derive_circuit_name;
+use crate::{
+    error::Error,
+    utils::{derive_circuit_name, FrWrapper},
+};
 
 // use crate::{derive_circuit_name, derive_k, CircuitExt};
 
@@ -76,7 +78,7 @@ impl<ConcreteCircuit: Circuit<Fr> + Circuit<Fr> + SubCircuit<Fr> + Clone + Debug
         Ok(self)
     }
 
-    pub fn run(&mut self, write_to_file: bool) -> Result<(Vec<u8>, Vec<Vec<Fr>>), Error> {
+    pub fn run(&mut self, write_to_file: bool) -> Result<Proof, Error> {
         self.load()?;
         let instances = self.circuit.instance();
         let instances_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
@@ -108,7 +110,7 @@ impl<ConcreteCircuit: Circuit<Fr> + Circuit<Fr> + SubCircuit<Fr> + Clone + Debug
             let mut file = File::create(proof_path)?;
             file.write_all(proof.as_slice())?;
         }
-        Ok((proof, instances))
+        Ok(Proof::from(self.degree, proof, instances))
     }
 
     pub fn verifier(&self) -> RealVerifier {
@@ -276,6 +278,52 @@ impl<ConcreteCircuit: Circuit<Fr> + Circuit<Fr> + SubCircuit<Fr> + Clone + Debug
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Proof {
+    pub degree: u32,
+    pub data: Vec<u8>,
+    instances: Vec<Vec<FrWrapper>>,
+}
+
+impl Proof {
+    pub fn from(degree: u32, proof: Vec<u8>, instances: Vec<Vec<Fr>>) -> Self {
+        Self {
+            degree,
+            data: proof,
+            instances: instances
+                .iter()
+                .map(|column| column.iter().map(|element| FrWrapper(*element)).collect())
+                .collect(),
+        }
+    }
+
+    pub fn instances(&self) -> Vec<Vec<Fr>> {
+        self.instances
+            .iter()
+            .map(|column| column.iter().map(|element| element.0).collect())
+            .collect()
+    }
+
+    pub fn unpack(self) -> (u32, Vec<u8>, Vec<Vec<Fr>>) {
+        let instances = self.instances();
+        (self.degree, self.data, instances)
+    }
+
+    pub fn write_to_file(&self, path: &PathBuf) -> Result<(), Error> {
+        let mut file = File::create(path)?;
+        file.write_all(serde_json::to_string(self)?.as_bytes())
+            .unwrap();
+        Ok(())
+    }
+
+    pub fn read_from_file(path: &PathBuf) -> Result<Self, Error> {
+        let mut file = File::open(path)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        Ok(serde_json::from_str(&contents)?)
+    }
+}
+
 pub struct RealVerifier {
     pub circuit_name: String,
     pub dir_path: PathBuf,
@@ -286,12 +334,7 @@ pub struct RealVerifier {
 }
 
 impl RealVerifier {
-    pub fn new(
-        circuit_name: String,
-        k: usize,
-        dir_path: PathBuf,
-        num_instance: Vec<usize>,
-    ) -> Self {
+    pub fn new(circuit_name: String, k: u32, dir_path: PathBuf, num_instance: Vec<usize>) -> Self {
         let path = dir_path.join(Path::new(&format!("kzg_general_params_{}", k)));
         let mut file = File::open(path).unwrap();
         let general_params = ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT).unwrap();
@@ -321,10 +364,12 @@ impl RealVerifier {
         }
     }
 
-    pub fn run(&self, proof: Vec<u8>, instance: Vec<Vec<Fr>>) -> Result<(), Error> {
+    pub fn verify(&self, proof: Proof) -> Result<(), Error> {
+        let (_, proof_data, instances) = proof.unpack();
         let strategy = SingleStrategy::new(&self.general_params);
-        let instance_refs_intermediate = instance.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
-        let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof[..]);
+        let instance_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
+        let mut verifier_transcript =
+            Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_data[..]);
 
         verify_proof::<
             KZGCommitmentScheme<Bn256>,
@@ -338,7 +383,9 @@ impl RealVerifier {
             strategy,
             &[&instance_refs_intermediate],
             &mut verifier_transcript,
-        )
+        )?;
+
+        Ok(())
     }
 
     pub fn generate_yul(&self, write_to_file: bool) -> Result<String, Error> {

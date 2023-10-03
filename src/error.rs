@@ -12,6 +12,7 @@ pub enum Error {
     Halo2Error(Box<plonk::Error>),
     StdError(Box<std::io::Error>),
     PartialMptError(Box<partial_mpt::Error>),
+    SerdeJsonError(Box<serde_json::Error>),
     InternalError(&'static str),
 }
 
@@ -48,5 +49,10 @@ impl From<partial_mpt::Error> for Error {
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
         Error::StdError(Box::new(err))
+    }
+}
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Error::SerdeJsonError(Box::new(err))
     }
 }
