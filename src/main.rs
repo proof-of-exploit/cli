@@ -1,8 +1,8 @@
 use bus_mapping::circuit_input_builder::FixedCParams;
-use eth_types::Bytes;
+use eth_types::{Bytes, U256};
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 use std::str::FromStr;
-use zk_proof_of_evm_exploit::BuilderClient;
+use zk_proof_of_evm_exploit::{inputs_builder::PoxInputs, BuilderClient};
 use zkevm_circuits::{
     super_circuit::SuperCircuit,
     util::{log2_ceil, SubCircuit},
@@ -53,8 +53,11 @@ async fn main() {
     let mut witness = builder
         .gen_witness(
             tx.block_number.unwrap().as_usize(),
-            Bytes::from_str("0x30ff").unwrap(),
-            Bytes::from_str("0x30ff").unwrap(),
+            PoxInputs {
+                challenge_bytecode: Bytes::from_str("0x30ff").unwrap(),
+                exploit_bytecode: Bytes::from_str("0x30ff").unwrap(),
+                exploit_balance: U256::zero(),
+            },
         )
         .await
         .unwrap();

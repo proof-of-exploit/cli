@@ -23,11 +23,16 @@ use crate::{
     error::Error,
 };
 
-#[allow(dead_code)]
 pub struct BuilderClient {
     pub anvil: AnvilClient,
     pub chain_id: eth_types::Word,
     pub circuits_params: FixedCParams,
+}
+
+pub struct PoxInputs {
+    pub challenge_bytecode: Bytes,
+    pub exploit_bytecode: Bytes,
+    pub exploit_balance: Word,
 }
 
 pub fn get_state_accesses(
@@ -98,20 +103,16 @@ impl BuilderClient {
     pub async fn gen_witness(
         &self,
         block_number: usize,
-        pox_challenge_bytecode: Bytes,
-        pox_exploit_bytecode: Bytes,
+        pox_inputs: PoxInputs,
     ) -> Result<zkevm_circuits::witness::Block<Fr>, Error> {
-        let (circuit_input_builder, _) = self
-            .gen_inputs(block_number, pox_challenge_bytecode, pox_exploit_bytecode)
-            .await?;
+        let (circuit_input_builder, _) = self.gen_inputs(block_number, pox_inputs).await?;
         Ok(block_convert::<Fr>(&circuit_input_builder)?)
     }
 
     pub async fn gen_inputs(
         &self,
         block_number: usize,
-        pox_challenge_bytecode: Bytes,
-        pox_exploit_bytecode: Bytes,
+        pox_inputs: PoxInputs,
     ) -> Result<(CircuitInputBuilder<FixedCParams>, EthBlockFull), Error> {
         let (mut block, traces, history_hashes, prev_state_root) =
             self.get_block(block_number).await?;
@@ -128,8 +129,7 @@ impl BuilderClient {
             &traces,
             history_hashes,
             prev_state_root,
-            pox_challenge_bytecode,
-            pox_exploit_bytecode,
+            pox_inputs,
         )?;
         Ok((builder, block))
     }
@@ -143,16 +143,16 @@ impl BuilderClient {
         geth_traces: &[GethExecTrace],
         history_hashes: Vec<Word>,
         prev_state_root: Word,
-        pox_challenge_bytecode: Bytes,
-        pox_exploit_bytecode: Bytes,
+        pox_inputs: PoxInputs,
     ) -> Result<CircuitInputBuilder<FixedCParams>, Error> {
         let block = Block::new(
             self.chain_id,
             history_hashes,
             prev_state_root,
             eth_block,
-            pox_challenge_bytecode,
-            pox_exploit_bytecode,
+            pox_inputs.challenge_bytecode,
+            pox_inputs.exploit_bytecode,
+            pox_inputs.exploit_balance,
         )?;
         let mut builder = CircuitInputBuilder::new(sdb, code_db, block, self.circuits_params);
         builder.handle_block(eth_block, geth_traces)?;
