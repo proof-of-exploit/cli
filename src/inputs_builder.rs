@@ -4,7 +4,7 @@ use bus_mapping::circuit_input_builder::FixedCParams;
 pub use bus_mapping::{
     circuit_input_builder::{
         build_state_code_db, gen_state_access_trace, Access, AccessSet, AccessValue, Block,
-        CircuitInputBuilder, CircuitsParams,
+        CircuitInputBuilder, CircuitsParams, PoxInputs,
     },
     operation::RW,
     state_db::{CodeDB, StateDB},
@@ -29,11 +29,12 @@ pub struct BuilderClient {
     pub circuits_params: FixedCParams,
 }
 
-pub struct PoxInputs {
-    pub challenge_bytecode: Bytes,
-    pub exploit_bytecode: Bytes,
-    pub exploit_balance: Word,
-}
+// pub struct PoxInputs {
+//     pub challenge_bytecode: Bytes,
+//     pub exploit_bytecode: Bytes,
+//     pub exploit_balance: Word,
+//     pub exploit_balance_before: Word,
+// }
 
 pub fn get_state_accesses(
     block: &EthBlockFull,
@@ -150,9 +151,7 @@ impl BuilderClient {
             history_hashes,
             prev_state_root,
             eth_block,
-            pox_inputs.challenge_bytecode,
-            pox_inputs.exploit_bytecode,
-            pox_inputs.exploit_balance,
+            pox_inputs,
         )?;
         let mut builder = CircuitInputBuilder::new(sdb, code_db, block, self.circuits_params);
         builder.handle_block(eth_block, geth_traces)?;

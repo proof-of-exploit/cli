@@ -1,3 +1,5 @@
+#![feature(slice_pattern)]
+
 pub mod anvil;
 pub mod env;
 pub mod error;
