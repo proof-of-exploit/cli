@@ -3,12 +3,19 @@ use std::collections::HashMap;
 use bus_mapping::circuit_input_builder::FixedCParams;
 pub use bus_mapping::{
     circuit_input_builder::{
-        build_state_code_db, gen_state_access_trace, Access, AccessSet, AccessValue, Block,
-        CircuitInputBuilder, CircuitsParams, PoxInputs,
+        build_state_code_db,
+        gen_state_access_trace,
+        Access,
+        AccessSet,
+        AccessValue,
+        Block,
+        CircuitInputBuilder,
+        CircuitsParams,
+        // PoxInputs,
     },
     operation::RW,
     state_db::{CodeDB, StateDB},
-    POX_CHALLENGE_ADDRESS,
+    // POX_CHALLENGE_ADDRESS,
 };
 use eth_types::Fr;
 use ethers::utils::keccak256;
@@ -56,13 +63,13 @@ pub fn get_state_accesses(
     }
 
     // the Challenge address has no code on the mainnet, however in the private block we assign it
-    block_access_trace.push(Access::new(
-        None,
-        RW::WRITE,
-        AccessValue::Code {
-            address: POX_CHALLENGE_ADDRESS,
-        },
-    ));
+    // block_access_trace.push(Access::new(
+    //     None,
+    //     RW::WRITE,
+    //     AccessValue::Code {
+    //         address: POX_CHALLENGE_ADDRESS,
+    //     },
+    // ));
 
     Ok(AccessSet::from(block_access_trace))
 }
@@ -104,16 +111,21 @@ impl BuilderClient {
     pub async fn gen_witness(
         &self,
         block_number: usize,
-        pox_inputs: PoxInputs,
+        // pox_inputs: PoxInputs,
     ) -> Result<zkevm_circuits::witness::Block<Fr>, Error> {
-        let (circuit_input_builder, _) = self.gen_inputs(block_number, pox_inputs).await?;
+        let (circuit_input_builder, _) = self
+            .gen_inputs(
+                block_number,
+                // pox_inputs
+            )
+            .await?;
         Ok(block_convert::<Fr>(&circuit_input_builder)?)
     }
 
     pub async fn gen_inputs(
         &self,
         block_number: usize,
-        pox_inputs: PoxInputs,
+        // pox_inputs: PoxInputs,
     ) -> Result<(CircuitInputBuilder<FixedCParams>, EthBlockFull), Error> {
         let (mut block, traces, history_hashes, prev_state_root) =
             self.get_block(block_number).await?;
@@ -130,7 +142,7 @@ impl BuilderClient {
             &traces,
             history_hashes,
             prev_state_root,
-            pox_inputs,
+            // pox_inputs,
         )?;
         Ok((builder, block))
     }
@@ -144,14 +156,14 @@ impl BuilderClient {
         geth_traces: &[GethExecTrace],
         history_hashes: Vec<Word>,
         prev_state_root: Word,
-        pox_inputs: PoxInputs,
+        // pox_inputs: PoxInputs,
     ) -> Result<CircuitInputBuilder<FixedCParams>, Error> {
         let block = Block::new(
             self.chain_id,
             history_hashes,
             prev_state_root,
             eth_block,
-            pox_inputs,
+            // pox_inputs,
         )?;
         let mut builder = CircuitInputBuilder::new(sdb, code_db, block, self.circuits_params);
         builder.handle_block(eth_block, geth_traces)?;
