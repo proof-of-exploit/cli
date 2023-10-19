@@ -58,11 +58,11 @@ pub struct RealProver<ConcreteCircuit: Circuit<Fr> + SubCircuit<Fr> + Clone + De
 impl<ConcreteCircuit: Circuit<Fr> + Circuit<Fr> + SubCircuit<Fr> + Clone + Debug>
     RealProver<ConcreteCircuit>
 {
-    pub fn from(circuit: ConcreteCircuit, k: u32) -> Self {
+    pub fn from(circuit: ConcreteCircuit, k: u32, dir_path: Option<PathBuf>) -> Self {
         Self {
             circuit,
             degree: k,
-            dir_path: PathBuf::from_str("./out").unwrap(),
+            dir_path: dir_path.unwrap_or(PathBuf::from_str("./out").unwrap()),
             rng: ChaChaRng::seed_from_u64(2),
             general_params: None,
             verifier_params: None,
@@ -220,25 +220,21 @@ impl<ConcreteCircuit: Circuit<Fr> + Circuit<Fr> + SubCircuit<Fr> + Clone + Debug
             derive_circuit_name(&self.circuit),
             self.degree
         )));
-        match File::open(verifying_key_path.clone()) {
-            Ok(mut file) => {
-                self.circuit_verifying_key = Some(
-                    VerifyingKey::<G1Affine>::read::<File, ConcreteCircuit>(
-                        &mut file,
-                        SERDE_FORMAT,
-                        self.circuit.params(),
-                    )
-                    .unwrap(),
-                );
-            }
-            Err(_) => {
-                let vk = keygen_vk(self.general_params.as_mut().unwrap(), &self.circuit)
-                    .expect("keygen_vk should not fail");
-                let mut file = File::create(verifying_key_path)?;
-                vk.write(&mut file, SERDE_FORMAT)?;
-                self.circuit_verifying_key = Some(vk);
-            }
-        };
+
+        if verifying_key_path.exists() && let Ok(mut file) = File::open(verifying_key_path.clone()) {
+            self.circuit_verifying_key = Some(
+                VerifyingKey::<G1Affine>::read::<File, ConcreteCircuit>(
+                    &mut file,
+                    SERDE_FORMAT,
+                    self.circuit.params(),
+                ).unwrap(),
+            );
+        } else {
+            let vk = keygen_vk(self.general_params.as_mut().unwrap(), &self.circuit).expect("keygen_vk should not fail");
+            let mut file = File::create(verifying_key_path)?;
+            vk.write(&mut file, SERDE_FORMAT)?;
+            self.circuit_verifying_key = Some(vk);
+        }
 
         self.ensure_dir_exists();
 
