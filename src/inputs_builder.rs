@@ -214,11 +214,12 @@ impl BuilderClient {
         &self,
         block_number: usize,
     ) -> Result<(EthBlockFull, Vec<GethExecTrace>), Error> {
-        let block = self
+        let mut block = self
             .anvil
             .block_by_number_full(block_number)
             .await?
             .expect("block not found");
+        block.withdrawals = Some(vec![]);
 
         let mut traces = Vec::default();
         for tx in &block.transactions {
