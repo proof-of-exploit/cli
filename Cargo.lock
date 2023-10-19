@@ -6306,7 +6306,6 @@ dependencies = [
  "ethers-core 2.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "gadgets",
  "halo2_proofs",
- "hex",
  "integer",
  "itertools",
  "lazy_static",
