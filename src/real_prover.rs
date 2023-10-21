@@ -397,11 +397,10 @@ impl RealVerifier {
             proof.circuit_name, proof.degree
         )));
         let mut file = File::open(verifying_key_path).unwrap();
-        let circuit = SuperCircuit::default();
         let circuit_verifying_key = VerifyingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
             &mut file,
             SERDE_FORMAT,
-            circuit.params(),
+            proof.circuit_params.clone().unwrap(),
         )
         .unwrap();
 
