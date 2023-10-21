@@ -397,6 +397,10 @@ impl RealVerifier {
             proof.circuit_name, proof.degree
         )));
         let mut file = File::open(verifying_key_path).unwrap();
+        println!(
+            "parsed circuit params: {:?}",
+            proof.circuit_params.clone().unwrap()
+        );
         let circuit_verifying_key = VerifyingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
             &mut file,
             SERDE_FORMAT,
@@ -426,9 +430,151 @@ impl RealVerifier {
             "verifier_params hash {:?}",
             keccak256(format!("{:?}", self.verifier_params).as_bytes())
         );
+        // println!("circuit_verifying_key {:?}", self.circuit_verifying_key);
         println!(
             "circuit_verifying_key hash {:?}",
             keccak256(format!("{:?}", self.circuit_verifying_key).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.domain hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.domain).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.fixed_commitments hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.fixed_commitments).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.permutation hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.permutation).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs).as_bytes())
+        );
+        ////
+
+        println!(
+            "circuit_verifying_key.cs.num_fixed_columns {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.num_fixed_columns).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.num_advice_columns {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.num_advice_columns).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.num_instance_columns {:?}",
+            keccak256(
+                format!("{:?}", self.circuit_verifying_key.cs.num_instance_columns).as_bytes()
+            )
+        );
+        println!(
+            "circuit_verifying_key.cs.num_selectors {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.num_selectors).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.num_challenges {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.num_challenges).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.advice_column_phase {:?}",
+            keccak256(
+                format!("{:?}", self.circuit_verifying_key.cs.advice_column_phase).as_bytes()
+            )
+        );
+        println!(
+            "circuit_verifying_key.cs.challenge_phase {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.challenge_phase).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.selector_map {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.selector_map).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.gates {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.gates).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.advice_queries {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.advice_queries).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.num_advice_queries {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.num_advice_queries).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.instance_queries {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.instance_queries).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.fixed_queries {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.fixed_queries).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.permutation {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.permutation).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.lookups {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.lookups).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.general_column_annotations {:?}",
+            keccak256(
+                format!(
+                    "{:?}",
+                    self.circuit_verifying_key.cs.general_column_annotations
+                )
+                .as_bytes()
+            )
+        );
+        println!(
+            "circuit_verifying_key.cs.constants {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.constants).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.cs.minimum_degree {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs.minimum_degree).as_bytes())
+        );
+
+        ////
+
+        println!(
+            "circuit_verifying_key.cs.gates len {:?}",
+            self.circuit_verifying_key.cs.gates.len()
+        );
+        println!(
+            "circuit_verifying_key.cs.advice_queries len {:?}",
+            self.circuit_verifying_key.cs.advice_queries.len()
+        );
+        println!(
+            "circuit_verifying_key.cs.lookups len {:?}",
+            self.circuit_verifying_key.cs.lookups.len()
+        );
+        println!(
+            "circuit_verifying_key.cs.general_column_annotations len {:?}",
+            self.circuit_verifying_key
+                .cs
+                .general_column_annotations
+                .len()
+        );
+        // println!(
+        //     "circuit_verifying_key.cs.lookups print {:?}",
+        //     self.circuit_verifying_key.cs.lookups
+        // );
+
+        ////
+
+        println!(
+            "circuit_verifying_key.cs_degree hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.cs_degree).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.transcript_repr hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.transcript_repr).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key.selectors hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key.selectors).as_bytes())
         );
         println!(
             "proof_data hash {:?}",
