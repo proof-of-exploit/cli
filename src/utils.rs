@@ -22,7 +22,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FrWrapper(pub Fr);
 
 impl Serialize for FrWrapper {
