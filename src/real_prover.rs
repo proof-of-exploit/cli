@@ -235,6 +235,10 @@ impl RealProver {
             let vk = keygen_vk(self.general_params.as_mut().unwrap(), &self.circuit).expect("keygen_vk should not fail");
             let mut file = File::create(verifying_key_path)?;
             vk.write(&mut file, SERDE_FORMAT)?;
+            println!(
+                "circuit_verifying_key hash {:?}",
+                keccak256(format!("{:?}", vk).as_bytes())
+            );
             self.circuit_verifying_key = Some(vk);
         }
 
@@ -263,8 +267,14 @@ impl RealProver {
                     &self.circuit,
                 )
                 .expect("keygen_pk should not fail");
-                let mut file = File::create(proving_key_path)?;
-                pk.write(&mut file, SERDE_FORMAT)?;
+                println!(
+                    "circuit_proving_key hash {:?}",
+                    keccak256(format!("{:?}", pk).as_bytes())
+                );
+                // Skip writing proving key to file because it takes lot of time
+                // TODO put this under a flag
+                // let mut file = File::create(proving_key_path)?;
+                // pk.write(&mut file, SERDE_FORMAT)?;
                 self.circuit_proving_key = Some(pk);
             }
         };
