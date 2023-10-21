@@ -1,3 +1,4 @@
+use eth_types::keccak256;
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fq, Fr, G1Affine},
     plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey},
@@ -331,6 +332,7 @@ pub struct RealVerifier {
 
 impl RealVerifier {
     pub fn new(circuit_name: String, k: u32, dir_path: PathBuf, num_instance: Vec<usize>) -> Self {
+        println!("RealVerifier::new - dir_path {:?}", dir_path);
         let path = dir_path.join(Path::new(&format!("kzg_general_params_{}", k)));
         let mut file = File::open(path).unwrap();
         let general_params = ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT).unwrap();
@@ -366,6 +368,27 @@ impl RealVerifier {
         let instance_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
         let mut verifier_transcript =
             Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_data[..]);
+
+        println!(
+            "general_params hash {:?}",
+            keccak256(format!("{:?}", self.general_params).as_bytes())
+        );
+        println!(
+            "verifier_params hash {:?}",
+            keccak256(format!("{:?}", self.verifier_params).as_bytes())
+        );
+        println!(
+            "circuit_verifying_key hash {:?}",
+            keccak256(format!("{:?}", self.circuit_verifying_key).as_bytes())
+        );
+        println!(
+            "proof_data hash {:?}",
+            keccak256(format!("{:?}", proof_data).as_bytes())
+        );
+        println!(
+            "instances hash {:?}",
+            keccak256(format!("{:?}", instances).as_bytes())
+        );
 
         verify_proof::<
             KZGCommitmentScheme<Bn256>,
