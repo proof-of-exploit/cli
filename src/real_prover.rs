@@ -26,6 +26,7 @@ use std::{
     str::FromStr,
 };
 use zkevm_circuits::{
+    instance::{public_data_convert, PublicData},
     super_circuit::{SuperCircuit, SuperCircuitParams},
     util::SubCircuit,
 };
@@ -76,6 +77,7 @@ impl RealProver {
 
     pub fn run(&mut self, write_to_file: bool) -> Result<Proof, Error> {
         self.load()?;
+        let public_data = public_data_convert(&self.circuit.evm_circuit.block.clone().unwrap());
         let instances = self.circuit.instance();
         let instances_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
         let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
@@ -113,6 +115,7 @@ impl RealProver {
             instances,
             circuit_name,
             self.circuit.params(),
+            public_data,
         ))
     }
 
@@ -312,6 +315,7 @@ pub struct Proof {
     instances: Vec<Vec<FrWrapper>>,
     pub circuit_name: String,
     circuit_params: SuperCircuitParamsWrapper, // TODO generalize later
+    public_data: PublicData,
 }
 
 impl Proof {
@@ -321,6 +325,7 @@ impl Proof {
         instances: Vec<Vec<Fr>>,
         circuit_name: String,
         circuit_params: SuperCircuitParams<Fr>,
+        public_data: PublicData,
     ) -> Self {
         Self {
             version: Version::from(env!("CARGO_PKG_VERSION").to_string()),
@@ -332,6 +337,7 @@ impl Proof {
                 .collect(),
             circuit_params: SuperCircuitParamsWrapper::wrap(circuit_params),
             circuit_name,
+            public_data,
         }
     }
 
@@ -350,13 +356,23 @@ impl Proof {
         self.circuit_params.clone().unwrap()
     }
 
-    pub fn unpack(&self) -> (u32, Bytes, Vec<Vec<Fr>>, String, SuperCircuitParams<Fr>) {
+    pub fn unpack(
+        &self,
+    ) -> (
+        u32,
+        Bytes,
+        Vec<Vec<Fr>>,
+        PublicData,
+        String,
+        SuperCircuitParams<Fr>,
+    ) {
         let instances = self.instances();
         let circuit_params = self.circuit_params();
         (
             self.degree,
             self.data.clone(),
             instances,
+            self.public_data.clone(),
             self.circuit_name.clone(),
             circuit_params,
         )
@@ -413,7 +429,7 @@ impl RealVerifier {
     }
 
     pub fn verify(&self, proof: Proof) -> Result<(), Error> {
-        let (_, proof_data, instances, _, _) = proof.unpack();
+        let (_, proof_data, instances, public_data, _, _) = proof.unpack();
         let strategy = SingleStrategy::new(&self.general_params);
         let instance_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
         let mut verifier_transcript =
@@ -432,6 +448,11 @@ impl RealVerifier {
             &[&instance_refs_intermediate],
             &mut verifier_transcript,
         )?;
+
+        let digest = public_data.get_rpi_digest_word::<Fr>();
+        if !(instances[0][0] == digest.lo() && instances[0][1] == digest.hi()) {
+            return Err(Error::InternalError("digest mismatch"));
+        }
 
         Ok(())
     }
