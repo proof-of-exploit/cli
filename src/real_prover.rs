@@ -31,7 +31,7 @@ use zkevm_circuits::{
 
 use crate::{
     error::Error,
-    utils::{derive_circuit_name, FrWrapper},
+    utils::{derive_circuit_name, FrWrapper, Version},
 };
 
 // use crate::{derive_circuit_name, derive_k, CircuitExt};
@@ -304,6 +304,8 @@ impl SuperCircuitParamsWrapper {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Proof {
+    #[serde(default)]
+    pub version: Version,
     pub degree: u32,
     pub data: Vec<u8>,
     instances: Vec<Vec<FrWrapper>>,
@@ -320,6 +322,7 @@ impl Proof {
         circuit_params: SuperCircuitParams<Fr>,
     ) -> Self {
         Self {
+            version: Version::from(env!("CARGO_PKG_VERSION").to_string()),
             degree,
             data: proof,
             instances: instances
@@ -394,10 +397,6 @@ impl RealVerifier {
             proof.circuit_name, proof.degree
         )));
         let mut file = File::open(verifying_key_path).unwrap();
-        println!(
-            "parsed circuit params: {:?}",
-            proof.circuit_params.clone().unwrap()
-        );
         let circuit_verifying_key = VerifyingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
             &mut file,
             SERDE_FORMAT,

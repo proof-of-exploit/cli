@@ -1,10 +1,11 @@
+#![allow(clippy::derive_ord_xor_partial_ord)]
 use core::fmt;
 use eth_types::{Bytes, Fr, H256};
 use ethers::utils::hex;
 use regex::Regex;
 use serde::{
     de::{self, Visitor},
-    Deserialize, Serialize,
+    Deserialize, Deserializer, Serialize,
 };
 use serde_json::Value;
 use std::{fmt::Debug, process, str::FromStr};
@@ -125,4 +126,77 @@ pub fn compile_solidity(source_path_string: String, match_contract_name: &str) -
         process::exit(1);
     };
     Bytes::from_str(compiled_bytecode).unwrap()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
+pub struct Version(usize, usize, usize);
+
+impl Version {
+    pub fn from(value: String) -> Version {
+        let split = value.rsplit('.');
+        let parsed_version: Vec<usize> = split.map(|r| r.parse().unwrap()).collect();
+        assert_eq!(parsed_version.len(), 3);
+        Version(parsed_version[0], parsed_version[1], parsed_version[2])
+    }
+}
+impl std::default::Default for Version {
+    fn default() -> Self {
+        Self(0, 1, 0)
+    }
+}
+
+impl std::cmp::Ord for Version {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.0 < other.0 || self.1 < other.1 || self.2 < other.2 {
+            return std::cmp::Ordering::Less;
+        }
+        if self.0 > other.0 || self.1 > other.1 || self.2 > other.2 {
+            return std::cmp::Ordering::Greater;
+        }
+        if self.0 == other.0 && self.1 == other.1 && self.2 == other.2 {
+            return std::cmp::Ordering::Equal;
+        }
+        unreachable!();
+    }
+}
+
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.0, self.1, self.2)
+    }
+}
+
+impl Serialize for Version {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(format!("{}", self).as_str())
+    }
+}
+
+struct VersionVisitor;
+
+impl<'de> Visitor<'de> for VersionVisitor {
+    type Value = Version;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("string of the form x.x.x where x is a non-negative integer")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Version::from(value.to_string()))
+    }
+}
+
+impl<'de> Deserialize<'de> for Version {
+    fn deserialize<D>(deserializer: D) -> Result<Version, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_string(VersionVisitor)
+    }
 }
