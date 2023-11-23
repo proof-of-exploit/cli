@@ -248,7 +248,7 @@ impl RealProver {
             self.degree
         )));
         // TODO make PK gen code similar to VK
-        match File::open(proving_key_path) {
+        match File::open(proving_key_path.clone()) {
             Ok(mut file) => {
                 self.circuit_proving_key = Some(
                     ProvingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
@@ -272,8 +272,8 @@ impl RealProver {
                 );
                 // Skip writing proving key to file because it takes lot of time
                 // TODO put this under a flag
-                // let mut file = File::create(proving_key_path)?;
-                // pk.write(&mut file, SERDE_FORMAT)?;
+                let mut file = File::create(proving_key_path)?;
+                pk.write(&mut file, SERDE_FORMAT)?;
                 self.circuit_proving_key = Some(pk);
             }
         };
