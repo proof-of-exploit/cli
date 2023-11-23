@@ -31,8 +31,9 @@ impl Serialize for FrWrapper {
     where
         S: serde::Serializer,
     {
-        let bytes = self.0.to_bytes();
-        serializer.serialize_str(hex::encode(bytes).as_str())
+        let mut bytes = self.0.to_bytes();
+        bytes.reverse();
+        serializer.serialize_str(hex::encode_prefixed(bytes).as_str())
     }
 }
 
@@ -58,9 +59,10 @@ impl<'de> Visitor<'de> for FrVisitor {
     where
         E: de::Error,
     {
-        Ok(FrWrapper(
-            Fr::from_bytes(H256::from_str(v).unwrap().as_fixed_bytes()).unwrap(),
-        ))
+        let bytes = H256::from_str(v).unwrap();
+        let mut bytes = bytes.as_fixed_bytes().to_owned();
+        bytes.reverse();
+        Ok(FrWrapper(Fr::from_bytes(&bytes).unwrap()))
     }
 }
 
