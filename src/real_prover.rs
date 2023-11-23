@@ -1,4 +1,5 @@
 use eth_types::keccak256;
+use ethers::types::Bytes;
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr, G1Affine},
     plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey},
@@ -307,7 +308,7 @@ pub struct Proof {
     #[serde(default)]
     pub version: Version,
     pub degree: u32,
-    pub data: Vec<u8>,
+    pub data: Bytes,
     instances: Vec<Vec<FrWrapper>>,
     pub circuit_name: String,
     circuit_params: SuperCircuitParamsWrapper, // TODO generalize later
@@ -324,7 +325,7 @@ impl Proof {
         Self {
             version: Version::from(env!("CARGO_PKG_VERSION").to_string()),
             degree,
-            data: proof,
+            data: Bytes::from(proof),
             instances: instances
                 .iter()
                 .map(|column| column.iter().map(|element| FrWrapper(*element)).collect())
@@ -349,7 +350,7 @@ impl Proof {
         self.circuit_params.clone().unwrap()
     }
 
-    pub fn unpack(&self) -> (u32, Vec<u8>, Vec<Vec<Fr>>, String, SuperCircuitParams<Fr>) {
+    pub fn unpack(&self) -> (u32, Bytes, Vec<Vec<Fr>>, String, SuperCircuitParams<Fr>) {
         let instances = self.instances();
         let circuit_params = self.circuit_params();
         (
