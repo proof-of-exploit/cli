@@ -13,6 +13,7 @@ pub enum Error {
     StdError(Box<std::io::Error>),
     PartialMptError(Box<partial_mpt::Error>),
     SerdeJsonError(Box<serde_json::Error>),
+    PinataError(Box<pinata_sdk::ApiError>),
     InternalError(&'static str),
 }
 
@@ -54,5 +55,11 @@ impl From<std::io::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error::SerdeJsonError(Box::new(err))
+    }
+}
+
+impl From<pinata_sdk::ApiError> for Error {
+    fn from(err: pinata_sdk::ApiError) -> Self {
+        Error::PinataError(Box::new(err))
     }
 }

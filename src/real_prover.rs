@@ -428,7 +428,7 @@ impl RealVerifier {
         }
     }
 
-    pub fn verify(&self, proof: Proof) -> Result<(), Error> {
+    pub fn verify(&self, proof: &Proof) -> Result<(), Error> {
         let (_, proof_data, instances, public_data, _, _) = proof.unpack();
         let strategy = SingleStrategy::new(&self.general_params);
         let instance_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
