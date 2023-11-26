@@ -250,6 +250,25 @@ impl AnvilClient {
             .to_zkevm_type())
     }
 
+    pub async fn estimate_gas(
+        &self,
+        request: anvil_types::EthTransactionRequest,
+        block_number: Option<usize>,
+    ) -> Result<zkevm_types::U256, Error> {
+        Ok(self
+            .eth_api
+            .estimate_gas(
+                request,
+                block_number.map(|n| {
+                    anvil_types::BlockId::Number(anvil_types::BlockNumber::Number(
+                        anvil_types::U64::from(n),
+                    ))
+                }),
+            )
+            .await
+            .map(|v| v.to_zkevm_type())?)
+    }
+
     pub async fn send_raw_transaction(
         &self,
         raw_tx: zkevm_types::Bytes,
