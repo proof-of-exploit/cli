@@ -5,7 +5,7 @@ use ethers::utils::hex;
 use regex::Regex;
 use serde::{
     de::{self, Visitor},
-    Deserialize, Deserializer, Serialize,
+    Deserialize, Serialize,
 };
 use serde_json::Value;
 use std::{fmt::Debug, process, str::FromStr};
@@ -130,76 +130,189 @@ pub fn compile_solidity(source_path_string: String, match_contract_name: &str) -
     Bytes::from_str(compiled_bytecode).unwrap()
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
-pub struct Version(usize, usize, usize);
+pub mod solc {
+    use eth_types::Bytes;
+    use semver::Version;
+    use serde::{Deserialize, Serialize};
 
-impl Version {
-    pub fn from(value: String) -> Version {
-        let split = value.rsplit('.');
-        let parsed_version: Vec<usize> = split.map(|r| r.parse().unwrap()).collect();
-        assert_eq!(parsed_version.len(), 3);
-        Version(parsed_version[0], parsed_version[1], parsed_version[2])
-    }
-}
-impl std::default::Default for Version {
-    fn default() -> Self {
-        Self(0, 1, 0)
-    }
-}
+    use crate::error::Error;
+    use std::{
+        collections::HashMap,
+        fs,
+        io::Write,
+        path::Path,
+        process::{Command, Stdio},
+    };
 
-impl std::cmp::Ord for Version {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.0 < other.0 || self.1 < other.1 || self.2 < other.2 {
-            return std::cmp::Ordering::Less;
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    struct Input {
+        language: String,
+        sources: HashMap<String, InputSource>,
+        settings: InputSettings,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    struct InputSettings {
+        optimizer: InputSettingsOptimizer,
+        #[serde(rename = "evmVersion")]
+        evm_version: EvmVersion,
+        #[serde(rename = "outputSelection")]
+        output_selection: HashMap<String, HashMap<String, Vec<String>>>,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    struct InputSettingsOptimizer {
+        enabled: bool,
+        runs: usize,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    struct InputSource {
+        content: String,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "snake_case")]
+    enum EvmVersion {
+        Homestead,
+        TangerineWhistle,
+        SpuriousDragon,
+        Byzantium,
+        Constantinople,
+        Petersburg,
+        Istanbul,
+        Berlin,
+        London,
+        Paris,
+        Shanghai,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+    struct Output {
+        contracts: HashMap<String, HashMap<String, OutputContract>>,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+    struct OutputContract {
+        evm: OutputContractEvm,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+    struct OutputContractEvm {
+        bytecode: OutputBytecode,
+        #[serde(rename = "deployedBytecode")]
+        deployed_bytecode: OutputBytecode,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+    struct OutputBytecode {
+        object: Bytes,
+    }
+
+    macro_rules! hashmap {
+        ($( $key: expr => $val: expr ),*) => {{
+             let mut map = ::std::collections::HashMap::new();
+             $( map.insert($key, $val); )*
+             map
+        }}
+    }
+
+    fn file_to_artifact(source_path_string: String) -> Result<Input, Error> {
+        Ok(Input {
+            language: "Solidity".to_string(),
+            sources: hashmap![source_path_string.clone() => InputSource {
+                content: fs::read_to_string(source_path_string)?,
+            }],
+            settings: InputSettings {
+                optimizer: InputSettingsOptimizer {
+                    enabled: true,
+                    runs: 200,
+                },
+                evm_version: EvmVersion::Paris,
+                output_selection: hashmap![ "*".into() => hashmap!["*".into() => vec!["evm.bytecode.object".into(), "evm.deployedBytecode.object".into()]]],
+            },
+        })
+    }
+
+    fn compile_artifact(input: &Input) -> Result<Output, Error> {
+        let mut solc = Command::new("solc")
+            .args(["--standard-json"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = solc.stdin.take() {
+            let input = serde_json::to_string(&input)?;
+            stdin.write_all(input.as_bytes())?;
         }
-        if self.0 > other.0 || self.1 > other.1 || self.2 > other.2 {
-            return std::cmp::Ordering::Greater;
+
+        let output = solc.wait_with_output()?;
+        let output: Output = serde_json::from_str(std::str::from_utf8(&output.stdout).unwrap())?;
+        Ok(output)
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct Artifact {
+        solc_version: Version,
+        input: Input,
+        output: Output,
+    }
+
+    impl Artifact {
+        pub fn from_source(source_path_string: String) -> Self {
+            let solc_version = svm_lib::current_version().unwrap().unwrap();
+            let input = file_to_artifact(source_path_string).unwrap();
+            let output = compile_artifact(&input).unwrap();
+            Artifact {
+                solc_version,
+                input,
+                output,
+            }
         }
-        if self.0 == other.0 && self.1 == other.1 && self.2 == other.2 {
-            return std::cmp::Ordering::Equal;
+
+        pub fn verify_compilation(&self) -> Result<(), Error> {
+            let fresh_compilation_output = compile_artifact(&self.input)?;
+            if fresh_compilation_output != self.output {
+                return Err(Error::InternalError("compilation not matching"));
+            }
+            Ok(())
         }
-        unreachable!();
-    }
-}
 
-impl std::fmt::Display for Version {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}.{}", self.0, self.1, self.2)
-    }
-}
+        pub fn get_creation_bytecode(&self, search_contract_name: String) -> Result<Bytes, Error> {
+            for (_, contracts) in self.output.contracts.iter() {
+                for (contract_name, contract) in contracts.iter() {
+                    if &search_contract_name == contract_name {
+                        return Ok(contract.evm.bytecode.object.clone());
+                    }
+                }
+            }
+            Err(Error::InternalError("could not find contract"))
+        }
 
-impl Serialize for Version {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(format!("{}", self).as_str())
-    }
-}
+        pub fn get_deployed_bytecode(&self, search_contract_name: String) -> Result<Bytes, Error> {
+            for (_, contracts) in self.output.contracts.iter() {
+                for (contract_name, contract) in contracts.iter() {
+                    if &search_contract_name == contract_name {
+                        return Ok(contract.evm.deployed_bytecode.object.clone());
+                    }
+                }
+            }
+            Err(Error::InternalError("could not find contract"))
+        }
 
-struct VersionVisitor;
-
-impl<'de> Visitor<'de> for VersionVisitor {
-    type Value = Version;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("string of the form x.x.x where x is a non-negative integer")
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(Version::from(value.to_string()))
-    }
-}
-
-impl<'de> Deserialize<'de> for Version {
-    fn deserialize<D>(deserializer: D) -> Result<Version, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_string(VersionVisitor)
+        pub fn unpack(&self, unpack_dir: String) {
+            for (path, source) in self.input.sources.iter() {
+                let prefix = Path::new(&unpack_dir);
+                let path = Path::new(path);
+                let path = prefix.join(path);
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent).unwrap();
+                }
+                let mut file = fs::File::create(path).unwrap();
+                file.write_all(source.content.as_bytes()).unwrap();
+            }
+        }
     }
 }
 

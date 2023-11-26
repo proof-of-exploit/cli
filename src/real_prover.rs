@@ -1,4 +1,5 @@
-use eth_types::keccak256;
+use core::slice::SlicePattern;
+use eth_types::{keccak256, H256};
 use ethers::types::Bytes;
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr, G1Affine},
@@ -17,6 +18,7 @@ use halo2_proofs::{
     SerdeFormat,
 };
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng, ChaChaRng};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -33,7 +35,7 @@ use zkevm_circuits::{
 
 use crate::{
     error::Error,
-    utils::{derive_circuit_name, FrWrapper, Version},
+    utils::{derive_circuit_name, solc::Artifact, FrWrapper},
 };
 
 // use crate::{derive_circuit_name, derive_k, CircuitExt};
@@ -75,7 +77,7 @@ impl RealProver {
         Ok(self)
     }
 
-    pub fn run(&mut self, write_to_file: bool) -> Result<Proof, Error> {
+    pub fn prove(&mut self) -> Result<Proof, Error> {
         self.load()?;
         let public_data = public_data_convert(&self.circuit.evm_circuit.block.clone().unwrap());
         let instances = self.circuit.instance();
@@ -100,15 +102,6 @@ impl RealProver {
 
         let circuit_name = derive_circuit_name(&self.circuit);
         let proof = transcript.finalize();
-        if write_to_file {
-            let proof_path = self.dir_path.join(Path::new(&format!(
-                "{}_proof", // TODO add timestamp
-                derive_circuit_name(&self.circuit)
-            )));
-
-            let mut file = File::create(proof_path)?;
-            file.write_all(proof.as_slice())?;
-        }
         Ok(Proof::from(
             self.degree,
             proof,
@@ -116,6 +109,7 @@ impl RealProver {
             circuit_name,
             self.circuit.params(),
             public_data,
+            None,
         ))
     }
 
@@ -308,7 +302,6 @@ impl SuperCircuitParamsWrapper {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Proof {
-    #[serde(default)]
     pub version: Version,
     pub degree: u32,
     pub data: Bytes,
@@ -316,6 +309,7 @@ pub struct Proof {
     pub circuit_name: String,
     circuit_params: SuperCircuitParamsWrapper, // TODO generalize later
     public_data: PublicData,
+    pub challenge_artifact: Option<Artifact>,
 }
 
 impl Proof {
@@ -326,9 +320,10 @@ impl Proof {
         circuit_name: String,
         circuit_params: SuperCircuitParams<Fr>,
         public_data: PublicData,
+        challenge_artifact: Option<Artifact>,
     ) -> Self {
         Self {
-            version: Version::from(env!("CARGO_PKG_VERSION").to_string()),
+            version: Version::from_str(env!("CARGO_PKG_VERSION")).unwrap(),
             degree,
             data: Bytes::from(proof),
             instances: instances
@@ -338,6 +333,7 @@ impl Proof {
             circuit_params: SuperCircuitParamsWrapper::wrap(circuit_params),
             circuit_name,
             public_data,
+            challenge_artifact,
         }
     }
 
@@ -435,6 +431,7 @@ impl RealVerifier {
         let mut verifier_transcript =
             Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_data[..]);
 
+        // verify zk proof
         verify_proof::<
             KZGCommitmentScheme<Bn256>,
             VerifierSHPLONK<'_, Bn256>,
@@ -449,9 +446,27 @@ impl RealVerifier {
             &mut verifier_transcript,
         )?;
 
+        // verify public data to be image of instance
         let digest = public_data.get_rpi_digest_word::<Fr>();
         if !(instances[0][0] == digest.lo() && instances[0][1] == digest.hi()) {
             return Err(Error::InternalError("digest mismatch"));
+        }
+
+        if let Some(challenge_artifact) = proof.challenge_artifact.clone() {
+            // verify compilation
+            challenge_artifact.verify_compilation()?;
+
+            // TODO ensure that challenge codehash is same as the codehash in public inputs
+            let bytecode = challenge_artifact
+                .get_deployed_bytecode("Challenge".to_string())
+                .unwrap();
+
+            let compiled_codehash = H256::from(keccak256(bytecode.as_slice()));
+            if compiled_codehash != proof.public_data.pox_challenge_codehash {
+                return Err(Error::InternalError(
+                    "compiled codehash does not match public inputs",
+                ));
+            }
         }
 
         Ok(())
