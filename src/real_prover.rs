@@ -424,7 +424,7 @@ impl RealVerifier {
         }
     }
 
-    pub fn verify(&self, proof: &Proof) -> Result<(), Error> {
+    pub async fn verify(&self, proof: &Proof) -> Result<(), Error> {
         let (_, proof_data, instances, public_data, _, _) = proof.unpack();
         let strategy = SingleStrategy::new(&self.general_params);
         let instance_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
@@ -445,28 +445,34 @@ impl RealVerifier {
             &[&instance_refs_intermediate],
             &mut verifier_transcript,
         )?;
+        println!("- ZK proof verifies");
 
         // verify public data to be image of instance
         let digest = public_data.get_rpi_digest_word::<Fr>();
         if !(instances[0][0] == digest.lo() && instances[0][1] == digest.hi()) {
             return Err(Error::InternalError("digest mismatch"));
         }
+        // println!("- Public inputs digest matches with instance");
 
         if let Some(challenge_artifact) = proof.challenge_artifact.clone() {
             // verify compilation
-            challenge_artifact.verify_compilation()?;
+            challenge_artifact.verify_compilation().await?;
+            // println!("- Challenge contract compiles to POX codehash in public inputs");
 
-            // TODO ensure that challenge codehash is same as the codehash in public inputs
+            // ensure that challenge codehash is same as the codehash in public inputs
             let bytecode = challenge_artifact
                 .get_deployed_bytecode("Challenge".to_string())
                 .unwrap();
-
             let compiled_codehash = H256::from(keccak256(bytecode.as_slice()));
             if compiled_codehash != proof.public_data.pox_challenge_codehash {
                 return Err(Error::InternalError(
                     "compiled codehash does not match public inputs",
                 ));
             }
+            // println!("- Compiled codehash verified with public inputs");
+            println!("- Challenge codehash in public inputs");
+        } else {
+            println!("Warning: Challenge artifact is not present in the proof");
         }
 
         Ok(())

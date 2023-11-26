@@ -271,8 +271,22 @@ pub mod solc {
             }
         }
 
-        pub fn verify_compilation(&self) -> Result<(), Error> {
+        pub async fn verify_compilation(&self) -> Result<(), Error> {
+            let user_version = svm_lib::current_version().unwrap().unwrap();
+            if user_version != self.solc_version {
+                let installed_versions = svm_lib::installed_versions().unwrap();
+                if !installed_versions.contains(&self.solc_version) {
+                    println!("Installing solc version {}...", self.solc_version);
+                    svm_lib::install(&self.solc_version).await.unwrap();
+                }
+                // switch solc to proof's solc version
+                svm_lib::use_version(&self.solc_version).unwrap();
+            }
             let fresh_compilation_output = compile_artifact(&self.input)?;
+            if user_version != self.solc_version {
+                // switch solc to user's original solc version
+                svm_lib::use_version(&user_version).unwrap();
+            }
             if fresh_compilation_output != self.output {
                 return Err(Error::InternalError("compilation not matching"));
             }
