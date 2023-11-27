@@ -249,7 +249,7 @@ impl BuilderClient {
                     .clone()
                     .unwrap()
                     .simulate_exploit(
-                        block_number,
+                        tx,
                         pox_inputs.challenge_bytecode.clone(),
                         pox_inputs.exploit_bytecode.clone(),
                         pox_inputs.exploit_balance,

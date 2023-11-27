@@ -368,12 +368,12 @@ pub mod geth {
     use crate::error::Error;
     use anvil_core::eth::transaction::EthTransactionRequest;
     use bus_mapping::{POX_CHALLENGE_ADDRESS, POX_EXPLOIT_ADDRESS};
-    use eth_types::{Bytes, GethExecTrace, U256};
+    use eth_types::{Bytes, GethExecTrace, Transaction, U256, U64};
     use ethers::providers::{Http, Provider};
     use ethers::utils::hex;
     use serde::{Deserialize, Serialize};
     use serde_json::Value;
-    use std::{collections::HashMap, str::FromStr};
+    use std::collections::HashMap;
 
     #[derive(Clone)]
     pub struct GethClient {
@@ -414,24 +414,24 @@ pub mod geth {
 
         pub async fn simulate_exploit(
             &self,
-            _block_number: usize,
+            tx: &Transaction,
             challenge_bytecode: Bytes,
             exploit_bytecode: Bytes,
             exploit_balance: U256,
         ) -> Result<GethExecTrace, Error> {
             let base_tx = EthTransactionRequest {
-                from: None,
+                from: Some(tx.from),
                 to: Some(POX_CHALLENGE_ADDRESS),
-                gas_price: Some(U256::zero()),
-                max_fee_per_gas: None,
-                max_priority_fee_per_gas: None,
-                gas: Some(U256::from(1_000_000)),
-                value: Some(U256::zero()),
-                data: Some(Bytes::from_str("0xb0d691fe").unwrap().to_anvil_type()),
-                nonce: None,
-                chain_id: None,
-                access_list: None,
-                transaction_type: None,
+                gas_price: tx.gas_price,
+                max_fee_per_gas: tx.max_fee_per_gas,
+                max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+                gas: Some(tx.gas),
+                value: Some(tx.value),
+                data: Some(tx.input.to_anvil_type()),
+                nonce: Some(tx.nonce),
+                chain_id: tx.chain_id.map(|c| U64::from(c.as_u64())),
+                access_list: None, // TODO tx.access_list,
+                transaction_type: tx.transaction_type.map(|c| U256::from(c.as_u64())),
             };
 
             Ok(self
