@@ -78,6 +78,7 @@ pub fn compile_huff(source_path_string: String) -> Bytes {
     let mut cmd = process::Command::new("huffc");
     cmd.arg(source_path_string);
     cmd.arg("-r");
+    cmd.args(["-e", "paris"]); // TODO put this behind a flag somehow
     let output = cmd.output().unwrap();
     if !output.stderr.is_empty() {
         println!(
