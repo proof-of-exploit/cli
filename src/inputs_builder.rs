@@ -17,14 +17,15 @@ use zkevm_circuits::witness::block_convert;
 
 use futures::future;
 
-use crate::types::zkevm_types::*;
 use crate::{
     anvil::{conversion::ConversionReverse, AnvilClient},
     error::Error,
 };
+use crate::{types::zkevm_types::*, utils::geth::GethClient};
 
 pub struct BuilderClient {
     pub anvil: AnvilClient,
+    pub geth: Option<GethClient>,
     pub chain_id: eth_types::Word,
     pub circuits_params: FixedCParams,
 }
@@ -76,21 +77,28 @@ impl BuilderClient {
     pub async fn from_config(
         circuits_params: FixedCParams,
         eth_rpc_url: Option<String>,
+        geth_rpc_url: Option<String>,
         fork_block_number: Option<usize>,
     ) -> Result<Self, Error> {
-        let anvil = AnvilClient::setup(eth_rpc_url, fork_block_number).await;
-        Self::new(anvil, circuits_params)
+        let anvil = AnvilClient::setup(eth_rpc_url.clone(), fork_block_number).await;
+        let geth = geth_rpc_url.or(eth_rpc_url).map(GethClient::new);
+        Self::new(anvil, geth, circuits_params)
     }
 
     pub async fn from_circuits_params(circuits_params: FixedCParams) -> Result<Self, Error> {
         let anvil = AnvilClient::default().await;
-        Self::new(anvil, circuits_params)
+        Self::new(anvil, None, circuits_params)
     }
 
-    pub fn new(anvil: AnvilClient, circuits_params: FixedCParams) -> Result<Self, Error> {
+    pub fn new(
+        anvil: AnvilClient,
+        geth: Option<GethClient>,
+        circuits_params: FixedCParams,
+    ) -> Result<Self, Error> {
         if let Some(chain_id) = anvil.eth_chain_id()? {
             Ok(Self {
                 anvil,
+                geth,
                 chain_id: Word::from(chain_id.as_usize()),
                 circuits_params,
             })
@@ -105,8 +113,11 @@ impl BuilderClient {
         &self,
         block_number: usize,
         pox_inputs: PoxInputs,
+        use_geth_trace: bool,
     ) -> Result<zkevm_circuits::witness::Block<Fr>, Error> {
-        let (circuit_input_builder, _) = self.gen_inputs(block_number, pox_inputs).await?;
+        let (circuit_input_builder, _) = self
+            .gen_inputs(block_number, pox_inputs, use_geth_trace)
+            .await?;
         Ok(block_convert::<Fr>(&circuit_input_builder)?)
     }
 
@@ -114,9 +125,11 @@ impl BuilderClient {
         &self,
         block_number: usize,
         pox_inputs: PoxInputs,
+        use_geth_trace: bool,
     ) -> Result<(CircuitInputBuilder<FixedCParams>, EthBlockFull), Error> {
-        let (mut block, traces, history_hashes, prev_state_root) =
-            self.get_block(block_number).await?;
+        let (mut block, traces, history_hashes, prev_state_root) = self
+            .get_block(block_number, pox_inputs.clone(), use_geth_trace)
+            .await?;
         let access_set = get_state_accesses(&block, &traces)?;
         let (proofs, codes, new_state_root) = self.get_state(block_number, access_set).await?;
         if block.state_root.is_zero() {
@@ -161,8 +174,12 @@ impl BuilderClient {
     async fn get_block(
         &self,
         block_number: usize,
+        pox_inputs: PoxInputs,
+        use_geth_trace: bool,
     ) -> Result<(EthBlockFull, Vec<GethExecTrace>, Vec<Word>, Word), Error> {
-        let (block, traces) = self.get_block_traces(block_number).await?;
+        let (block, traces) = self
+            .get_block_traces(block_number, pox_inputs, use_geth_trace)
+            .await?;
 
         // fetch up to 256 blocks
         let n_blocks = std::cmp::min(256, block_number);
@@ -201,6 +218,8 @@ impl BuilderClient {
     async fn get_block_traces(
         &self,
         block_number: usize,
+        pox_inputs: PoxInputs,
+        use_geth_trace: bool,
     ) -> Result<(EthBlockFull, Vec<GethExecTrace>), Error> {
         let block = self
             .anvil
@@ -210,21 +229,33 @@ impl BuilderClient {
 
         let mut traces = Vec::default();
         for tx in &block.transactions {
-            let anvil_trace = self
-                .anvil
-                .debug_trace_transaction(
-                    tx.hash,
-                    GethDebugTracingOptions {
-                        enable_memory: Some(false),
-                        disable_stack: Some(false),
-                        disable_storage: Some(false),
-                        enable_return_data: Some(true),
-                        tracer: None,
-                        tracer_config: None,
-                        timeout: None,
-                    },
-                )
-                .await?;
+            let anvil_trace = if !use_geth_trace {
+                self.anvil
+                    .debug_trace_transaction(
+                        tx.hash,
+                        GethDebugTracingOptions {
+                            enable_memory: Some(false),
+                            disable_stack: Some(false),
+                            disable_storage: Some(false),
+                            enable_return_data: Some(true),
+                            tracer: None,
+                            tracer_config: None,
+                            timeout: None,
+                        },
+                    )
+                    .await?
+            } else {
+                self.geth
+                    .clone()
+                    .unwrap()
+                    .simulate_exploit(
+                        block_number,
+                        pox_inputs.challenge_bytecode.clone(),
+                        pox_inputs.exploit_bytecode.clone(),
+                        pox_inputs.exploit_balance,
+                    )
+                    .await?
+            };
             traces.push(anvil_trace);
         }
 
@@ -322,12 +353,12 @@ impl BuilderClient {
 mod tests {
     use crate::anvil::AnvilClient;
     use crate::inputs_builder::BuilderClient;
-    use bus_mapping::circuit_input_builder::FixedCParams;
+    use bus_mapping::circuit_input_builder::{FixedCParams, PoxInputs};
 
     #[tokio::test]
     async fn test() {
         let anvil = AnvilClient::setup(None, None).await;
-        let bc = BuilderClient::new(anvil, FixedCParams::default()).unwrap();
+        let bc = BuilderClient::new(anvil, None, FixedCParams::default()).unwrap();
         assert_eq!(bc.chain_id.as_usize(), 31337);
 
         let hash = bc
@@ -343,8 +374,10 @@ mod tests {
         loop {
             if let Some(tx) = bc.anvil.transaction_by_hash(hash).await.unwrap() {
                 if let Some(block_number) = tx.block_number {
-                    let (block, traces) =
-                        bc.get_block_traces(block_number.as_usize()).await.unwrap();
+                    let (block, traces) = bc
+                        .get_block_traces(block_number.as_usize(), PoxInputs::default(), false)
+                        .await
+                        .unwrap();
                     assert_eq!(block.transactions.len(), 1);
                     assert_eq!(traces.len(), 1);
                     break;

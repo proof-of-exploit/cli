@@ -10,6 +10,14 @@ use serde::{
 use serde_json::Value;
 use std::{fmt::Debug, process, str::FromStr};
 
+macro_rules! hashmap {
+    ($( $key: expr => $val: expr ),*) => {{
+         let mut map = ::std::collections::HashMap::new();
+         $( map.insert($key, $val); )*
+         map
+    }}
+}
+
 pub fn derive_circuit_name<ConcreteCircuit>(circuit: ConcreteCircuit) -> String
 where
     ConcreteCircuit: Debug,
@@ -209,14 +217,6 @@ pub mod solc {
         object: Bytes,
     }
 
-    macro_rules! hashmap {
-        ($( $key: expr => $val: expr ),*) => {{
-             let mut map = ::std::collections::HashMap::new();
-             $( map.insert($key, $val); )*
-             map
-        }}
-    }
-
     fn file_to_artifact(source_path_string: String) -> Result<Input, Error> {
         Ok(Input {
             language: "Solidity".to_string(),
@@ -359,5 +359,108 @@ pub mod ipfs {
 
         let str = res.text().await.unwrap();
         Ok(serde_json::from_str(str.as_str())?)
+    }
+}
+
+pub mod geth {
+    use crate::anvil::conversion::ConversionReverse;
+    use crate::error::Error;
+    use anvil_core::eth::transaction::EthTransactionRequest;
+    use bus_mapping::{POX_CHALLENGE_ADDRESS, POX_EXPLOIT_ADDRESS};
+    use eth_types::{Bytes, GethExecTrace, U256};
+    use ethers::providers::{Http, Provider};
+    use ethers::utils::hex;
+    use serde::{Deserialize, Serialize};
+    use serde_json::Value;
+    use std::{collections::HashMap, str::FromStr};
+
+    #[derive(Clone)]
+    pub struct GethClient {
+        provider: Provider<Http>,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+    #[serde(rename_all = "camelCase")]
+    pub struct GethDebugTracingOptions {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub disable_storage: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub disable_stack: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub enable_memory: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub enable_return_data: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub timeout: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state_overrides: Option<HashMap<String, StateOverrides>>,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    struct StateOverrides {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        code: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        balance: Option<String>,
+    }
+
+    impl GethClient {
+        pub fn new(url: String) -> Self {
+            GethClient {
+                provider: Provider::<Http>::try_from(&url).unwrap(),
+            }
+        }
+
+        pub async fn simulate_exploit(
+            &self,
+            _block_number: usize,
+            challenge_bytecode: Bytes,
+            exploit_bytecode: Bytes,
+            exploit_balance: U256,
+        ) -> Result<GethExecTrace, Error> {
+            let base_tx = EthTransactionRequest {
+                from: None,
+                to: Some(POX_CHALLENGE_ADDRESS),
+                gas_price: Some(U256::zero()),
+                max_fee_per_gas: None,
+                max_priority_fee_per_gas: None,
+                gas: Some(U256::from(1_000_000)),
+                value: Some(U256::zero()),
+                data: Some(Bytes::from_str("0xb0d691fe").unwrap().to_anvil_type()),
+                nonce: None,
+                chain_id: None,
+                access_list: None,
+                transaction_type: None,
+            };
+
+            Ok(self
+                .provider
+                .request::<_, GethExecTrace>(
+                    "debug_traceCall",
+                    [
+                        serde_json::to_value(base_tx).unwrap(),
+                        Value::String("latest".to_string()), // node not support archive trace - Value::String(format!("0x{block_number:x}")),
+                        serde_json::to_value(GethDebugTracingOptions {
+                            enable_memory: None,
+                            disable_stack: None,
+                            disable_storage: None,
+                            enable_return_data: None,
+                            timeout: None,
+                            state_overrides: Some(hashmap![
+                                format!("{POX_CHALLENGE_ADDRESS:?}") => StateOverrides {
+                                    code: Some(hex::encode_prefixed(challenge_bytecode)),
+                                    balance: None,
+                                },
+                                format!("{POX_EXPLOIT_ADDRESS:?}") => StateOverrides {
+                                    code: Some(hex::encode_prefixed(exploit_bytecode)),
+                                    balance: Some(format!("0x{exploit_balance:x}")),
+                                }
+                            ]),
+                        })
+                        .unwrap(),
+                    ],
+                )
+                .await?)
+        }
     }
 }

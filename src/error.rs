@@ -14,6 +14,7 @@ pub enum Error {
     PartialMptError(Box<partial_mpt::Error>),
     SerdeJsonError(Box<serde_json::Error>),
     PinataError(Box<pinata_sdk::ApiError>),
+    EthersProviderError(Box<ethers::providers::ProviderError>),
     InternalError(&'static str),
 }
 
@@ -52,9 +53,16 @@ impl From<std::io::Error> for Error {
         Error::StdError(Box::new(err))
     }
 }
+
 impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error::SerdeJsonError(Box::new(err))
+    }
+}
+
+impl From<ethers::providers::ProviderError> for Error {
+    fn from(err: ethers::providers::ProviderError) -> Self {
+        Error::EthersProviderError(Box::new(err))
     }
 }
 
