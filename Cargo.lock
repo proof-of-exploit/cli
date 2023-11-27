@@ -863,6 +863,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
+ "once_cell",
  "strsim",
  "terminal_size",
  "unicase",
@@ -4297,6 +4298,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "proof-of-exploit"
+version = "0.1.0"
+dependencies = [
+ "anvil",
+ "anvil-core",
+ "bus-mapping",
+ "bytes",
+ "clap",
+ "dotenv",
+ "eth-types",
+ "ethers",
+ "ethers-core 2.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures",
+ "halo2_proofs",
+ "itertools",
+ "partial-mpt",
+ "pinata-sdk",
+ "rand_chacha 0.3.1",
+ "regex",
+ "reqwest",
+ "semver 1.0.18",
+ "serde",
+ "serde_json",
+ "snark-verifier 0.1.1",
+ "svm-rs",
+ "tokio",
+ "zkevm-circuits",
+]
+
+[[package]]
 name = "proptest"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6660,36 +6691,6 @@ dependencies = [
  "sha1",
  "time",
  "zstd",
-]
-
-[[package]]
-name = "zk-proof-of-evm-exploit"
-version = "0.1.0"
-dependencies = [
- "anvil",
- "anvil-core",
- "bus-mapping",
- "bytes",
- "clap",
- "dotenv",
- "eth-types",
- "ethers",
- "ethers-core 2.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures",
- "halo2_proofs",
- "itertools",
- "partial-mpt",
- "pinata-sdk",
- "rand_chacha 0.3.1",
- "regex",
- "reqwest",
- "semver 1.0.18",
- "serde",
- "serde_json",
- "snark-verifier 0.1.1",
- "svm-rs",
- "tokio",
- "zkevm-circuits",
 ]
 
 [[package]]

@@ -1,7 +1,11 @@
 [package]
-name = "zk-proof-of-evm-exploit"
+name = "proof-of-exploit"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "exploit"
+path = "src/main.rs"
 
 [dependencies]
 # anvil
@@ -26,7 +30,7 @@ tokio = { version = "1.13", features = ["macros"] }
 futures = { version = "0.3.*" }
 dotenv = "0.15.0"
 bytes = "1.1.0"
-clap = { version = "4.0", features = ["derive"] }
+clap = { version = "4.0", features = ["derive", "cargo"] }
 serde = "1.0.188"
 serde_json = "1.0.107"
 regex = "1.9.5"
