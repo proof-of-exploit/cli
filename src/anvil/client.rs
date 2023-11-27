@@ -27,7 +27,9 @@ impl AnvilClient {
             .with_fork_block_number(fork_block_number.map(|v| v as u64))
             .with_port(8548)
             .silent()
-            .with_steps_tracing(true);
+            .with_steps_tracing(true)
+            .with_gas_price(Some(0))
+            .with_base_fee(Some(0));
 
         let (eth_api, _) = spawn(node_config).await;
         Self { eth_api }
