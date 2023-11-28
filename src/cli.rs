@@ -8,11 +8,32 @@ use crate::{
         solidity,
     },
 };
-use clap::{arg, ArgMatches};
+use clap::{arg, command, ArgMatches, Command};
 use eth_types::U256;
 use ethers::utils::parse_ether;
 use semver::Version;
 use std::{fs::create_dir_all, path::PathBuf, process, str::FromStr};
+
+pub const EXPLOIT: &str = "exploit";
+pub const TEST: &str = "test";
+pub const PROVE: &str = "prove";
+pub const VERIFY: &str = "verify";
+
+pub fn exploit_command() -> Command {
+    command!(EXPLOIT)
+        .name("Proof of Exploit")
+        .about("Generate and verify zk proof of exploits for ethereum smart contracts")
+        .version("v0.1.0")
+        .after_help("Find more information at https://github.com/zemse/proof-of-exploit")
+        .subcommands([
+            ProveArgs::apply(command!(TEST)).about("Test the exploit using MockProver (~15G RAM)"),
+            ProveArgs::apply(command!(PROVE)).about("Generate proof using RealProver (200G+ RAM)"),
+            VerifyArgs::apply(command!(VERIFY))
+                .about("Verify zk proofs")
+                .after_help("after verify help"),
+        ])
+        .subcommand_required(true)
+}
 
 pub struct ProveArgs {
     pub rpc: String,
@@ -112,8 +133,8 @@ pub struct VerifyArgs {
 
 impl VerifyArgs {
     pub fn apply(c: clap::Command) -> clap::Command {
-        c.arg(arg!(--srs <PATH> "Enter the proof path for rw" ))
-            .arg(arg!(--proof <PATH> "Enter the proof path for rw" ))
+        c.arg(arg!(--srs <PATH> "Enter the path for storing SRS parameters" ))
+            .arg(arg!(--proof <PATH> "Enter the proof path or IPFS hash" ))
             .arg(arg!(--unpack <PATH> "Enter path to unpack challenge solidity code" ))
     }
 
