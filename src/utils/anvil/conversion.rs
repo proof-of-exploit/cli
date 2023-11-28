@@ -1,8 +1,6 @@
-use std::{collections::HashMap, str::FromStr};
-
-use crate::types::{anvil_types, zkevm_types};
-
+use super::types::{anvil_types, zkevm_types};
 use ethers::{types::BigEndianHash, utils::hex};
+use std::{collections::HashMap, str::FromStr};
 
 // Conversion from anvil types to zkevm types
 pub trait Conversion<T> {

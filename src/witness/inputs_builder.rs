@@ -1,10 +1,14 @@
-use std::collections::HashMap;
-
-use bus_mapping::circuit_input_builder::FixedCParams;
+use crate::{
+    error::Error,
+    utils::{
+        anvil::{conversion::ConversionReverse, types::zkevm_types::*, AnvilClient},
+        geth::GethClient,
+    },
+};
 pub use bus_mapping::{
     circuit_input_builder::{
         build_state_code_db, gen_state_access_trace, Access, AccessSet, AccessValue, Block,
-        CircuitInputBuilder, CircuitsParams, PoxInputs,
+        CircuitInputBuilder, CircuitsParams, FixedCParams, PoxInputs,
     },
     operation::RW,
     state_db::{CodeDB, StateDB},
@@ -12,16 +16,10 @@ pub use bus_mapping::{
 };
 use eth_types::Fr;
 use ethers::utils::keccak256;
-use partial_mpt::StateTrie;
-use zkevm_circuits::witness::block_convert;
-
 use futures::future;
-
-use crate::{
-    anvil::{conversion::ConversionReverse, AnvilClient},
-    error::Error,
-};
-use crate::{types::zkevm_types::*, utils::geth::GethClient};
+use partial_mpt::StateTrie;
+use std::collections::HashMap;
+use zkevm_circuits::witness::block_convert;
 
 pub struct BuilderClient {
     pub anvil: AnvilClient,
@@ -29,13 +27,6 @@ pub struct BuilderClient {
     pub chain_id: eth_types::Word,
     pub circuits_params: FixedCParams,
 }
-
-// pub struct PoxInputs {
-//     pub challenge_bytecode: Bytes,
-//     pub exploit_bytecode: Bytes,
-//     pub exploit_balance: Word,
-//     pub exploit_balance_before: Word,
-// }
 
 pub fn get_state_accesses(
     block: &EthBlockFull,
@@ -351,8 +342,8 @@ impl BuilderClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::anvil::AnvilClient;
-    use crate::inputs_builder::BuilderClient;
+    use super::BuilderClient;
+    use crate::utils::anvil::AnvilClient;
     use bus_mapping::circuit_input_builder::{FixedCParams, PoxInputs};
 
     #[tokio::test]

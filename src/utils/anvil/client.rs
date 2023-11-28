@@ -1,13 +1,11 @@
-use std::{thread::sleep, time::Duration};
-
-use crate::{
-    anvil::conversion::{convert_option, ConversionReverse},
-    env::Env,
-    error::Error,
+use super::{
+    conversion::{convert_option, ConversionReverse},
     types::{anvil_types, zkevm_types},
 };
+use crate::{env::Env, error::Error};
 use anvil::{eth::EthApi, spawn, NodeConfig};
 use ethers::utils::parse_ether;
+use std::{thread::sleep, time::Duration};
 
 use super::conversion::Conversion;
 pub struct AnvilClient {
@@ -340,7 +338,7 @@ pub fn patch_trace(mut trace: zkevm_types::GethExecTrace) -> zkevm_types::GethEx
 
 #[cfg(test)]
 mod tests {
-    use crate::anvil::AnvilClient;
+    use super::AnvilClient;
 
     // ignored because cannot run anvil again in other test
     #[ignore]

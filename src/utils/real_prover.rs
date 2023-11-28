@@ -33,10 +33,11 @@ use zkevm_circuits::{
     util::SubCircuit,
 };
 
-use crate::{
-    error::Error,
-    utils::{derive_circuit_name, solc::Artifact, FrWrapper},
+use super::{
+    halo2::{derive_circuit_name, FrWrapper},
+    solidity::Artifact,
 };
+use crate::error::Error;
 
 // use crate::{derive_circuit_name, derive_k, CircuitExt};
 

@@ -1,7 +1,8 @@
 use clap::command;
 use proof_of_exploit::{
-    args::{handle_verify, ProveArgs, VerifyArgs, Witness},
+    cli::{handle_verify, ProveArgs, VerifyArgs},
     env::Env,
+    witness::Witness,
 };
 
 #[tokio::main]
