@@ -3,7 +3,11 @@ mod inputs_builder;
 use crate::{
     cli::ProveArgs,
     constants::{MAX_CALLDATA, MAX_TXS, RANDOMNESS},
-    utils::{anvil::types::anvil_types, ipfs, real_prover::RealProver},
+    utils::{
+        anvil::{conversion::Conversion, types::anvil_types},
+        ipfs,
+        real_prover::RealProver,
+    },
     witness::inputs_builder::BuilderClient,
 };
 use bus_mapping::{
@@ -12,7 +16,11 @@ use bus_mapping::{
 };
 use core::slice::SlicePattern;
 use eth_types::{keccak256, Fr, U256, U64};
-use ethers::utils::hex;
+use ethers::{
+    signers::{LocalWallet, Signer},
+    types::{transaction::eip2718::TypedTransaction, NameOrAddress, TransactionRequest},
+    utils::hex,
+};
 use halo2_proofs::dev::MockProver;
 use std::{
     path::Path,
@@ -58,7 +66,7 @@ impl Witness {
 
         let chain_id = builder.anvil.eth_chain_id().unwrap().unwrap();
         let block_number = builder.anvil.block_number().unwrap();
-        println!("Anvil initialized - chain_id: {chain_id:?}, block_number: {block_number:?}");
+        println!("Anvil initialized with chain_id: {chain_id:?}, block_number: {block_number:?}");
 
         // updating challenge bytecode in local mainnet fork chain
         builder
@@ -84,33 +92,58 @@ impl Witness {
             .await
             .unwrap();
 
+        let signer = LocalWallet::from_str(
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+        )
+        .unwrap();
+
+        // generate transaction request
+        let tx_req_estimate = anvil_types::EthTransactionRequest {
+            from: Some(signer.address()),
+            to: Some(POX_CHALLENGE_ADDRESS),
+            gas_price: Some(U256::zero()),
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+            gas: args.gas.or(Some(1_000_000)).map(U256::from),
+            value: Some(U256::zero()),
+            data: Some(anvil_types::Bytes::from_str("0xb0d691fe").unwrap()),
+            nonce: Some(
+                builder
+                    .anvil
+                    .get_nonce(signer.address(), Some(block_number))
+                    .await
+                    .unwrap(),
+            ),
+            chain_id: Some(chain_id.as_u64().into()),
+            access_list: None,
+            transaction_type: None,
+        };
+        let mut tx_req_sign = TypedTransaction::Legacy(TransactionRequest {
+            from: tx_req_estimate.from,
+            to: tx_req_estimate.to.map(NameOrAddress::Address),
+            gas_price: tx_req_estimate.gas_price,
+            gas: tx_req_estimate.gas,
+            value: tx_req_estimate.value,
+            data: tx_req_estimate.data.clone(),
+            nonce: tx_req_estimate.nonce,
+            chain_id: tx_req_estimate.chain_id,
+        });
+
         // check for reverts and panic out
-        builder
+        let gas_estimate = builder
             .anvil
-            .estimate_gas(
-                anvil_types::EthTransactionRequest {
-                    from: None,
-                    to: Some(POX_CHALLENGE_ADDRESS),
-                    gas_price: Some(U256::zero()),
-                    max_fee_per_gas: None,
-                    max_priority_fee_per_gas: None,
-                    gas: Some(U256::from(1_000_000)),
-                    value: Some(U256::zero()),
-                    data: Some(anvil_types::Bytes::from_str("0xb0d691fe").unwrap()),
-                    nonce: None,
-                    chain_id: None,
-                    access_list: None,
-                    transaction_type: None,
-                },
-                None,
-            )
+            .estimate_gas(tx_req_estimate, None)
             .await
             .unwrap();
+        tx_req_sign.set_gas(args.gas.map(U256::from).unwrap_or(gas_estimate));
+
+        let signature = signer.sign_transaction_sync(&tx_req_sign).unwrap();
+        let raw_tx = tx_req_sign.rlp_signed(&signature);
 
         // confirm the tx on the local block
         let hash = builder
             .anvil
-            .send_raw_transaction(args.tx.clone())
+            .send_raw_transaction(raw_tx.to_zkevm_type())
             .await
             .unwrap();
         builder.anvil.wait_for_transaction(hash).await.unwrap();
@@ -122,17 +155,18 @@ impl Witness {
             .unwrap()
             .unwrap();
 
-        println!("transaction gas: {}", rc.gas_used.unwrap());
-        // println!("transaction success: {}", rc.status.unwrap());
+        println!("Gas consumed: {}", rc.gas_used.unwrap());
+
         if rc.status.unwrap() != U64::from(1) {
             // TODO make sure that storage is also updated and not just tx is successful
             // TODO make sure that storage update with reversion does not pass the lookup check
-            // TODO also add a --traces option to print helpful info to debug this for user
-            println!("error: exploit transaction is not successful.");
+            println!("Error: Exploit transaction is not successful.");
             process::exit(1);
         }
 
-        println!("tx confirmed on anvil, hash: {}", hex::encode(hash));
+        println!("Tx confirmed on Anvil: {}", hex::encode_prefixed(hash));
+
+        println!("Generating Witness...");
 
         let tx = builder
             .anvil
@@ -158,14 +192,14 @@ impl Witness {
             .unwrap();
         witness.randomness = Fr::from(RANDOMNESS);
 
-        println!("Witness generated");
+        println!("Witness generated!");
 
         let (_, rows_needed) = SuperCircuit::<Fr>::min_num_rows_block(&witness);
         let circuit = SuperCircuit::<Fr>::new_from_block(&witness);
         let k = log2_ceil(64 + rows_needed);
         let instance = circuit.instance();
 
-        println!("Instances: {instance:#?}");
+        // println!("Instances: {instance:?}");
 
         Witness {
             k,

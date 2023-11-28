@@ -21,7 +21,7 @@ pub struct ProveArgs {
     pub challenge_artifact: solidity::Artifact,
     pub exploit_bytecode: Bytes,
     pub exploit_balance: U256,
-    pub tx: Bytes,
+    pub gas: Option<usize>,
     pub srs_path: PathBuf,
     pub ipfs: bool,
     pub max_rws: usize,
@@ -40,7 +40,7 @@ impl ProveArgs {
             .arg(arg!(--challenge <CONTRACT> "Enter hex bytecode or file path" ))
             .arg(arg!(--exploit <CONTRACT> "Enter hex bytecode or file path" ))
             .arg(arg!(--"exploit-balance" <NUMBER> "Enter ether amount to fund 0xbada55 address" ))
-            .arg(arg!(--tx <HEX> "Enter the tx" ))
+            .arg(arg!(--gas <NUMBER> "Enter amount of gas for exploit tx" ))
             .arg(arg!(--srs <PATH> "Enter the dir for srs params" ))
             .arg(arg!(--ipfs "Publish the proof to IPFS" ))
             .arg(arg!(--"max-rws" <NUMBER>))
@@ -69,7 +69,7 @@ impl ProveArgs {
         let exploit_balance =
             parse_ether(parse_optional(arg_matches, "exploit-balance").unwrap_or("0".to_string()))
                 .expect("please provide ether amount correctly for --exploit-balance");
-        let tx = parse_optional(arg_matches, "tx").unwrap_or(Bytes::from_str("0xf86c8084ee6b2800830249f094feedc0de000000000000000000000000000000008084b0d691fe8401546d72a01e8eb2b20f4b86774c885aaf14686a3c3f42843ce12b838e74cb5f87c5c4ca01a045dae624463186e4c7d4866fc72c1740e59de8b5d5295dc4e8c5393a4c4c02e1").unwrap());
+        let gas = parse_optional(arg_matches, "gas");
         let srs_path = parse_srs_path(arg_matches);
         let ipfs = arg_matches.get_flag("ipfs");
         let max_rws = parse_optional(arg_matches, "max-rws").unwrap_or(env.max_rws.unwrap_or(1000));
@@ -91,7 +91,7 @@ impl ProveArgs {
             challenge_artifact,
             exploit_bytecode,
             exploit_balance,
-            tx,
+            gas,
             srs_path,
             ipfs,
             max_rws,
