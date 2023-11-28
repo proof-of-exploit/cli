@@ -1,6 +1,10 @@
 use proof_of_exploit::{
-    cli::{exploit_command, handle_verify, ProveArgs, VerifyArgs, PROVE, TEST, VERIFY},
+    cli::{
+        exploit_command, handle_verify, ProveArgs, ScaffoldArgs, VerifyArgs, PROVE, SCAFFOLD, TEST,
+        VERIFY,
+    },
     env::Env,
+    utils::scaffold,
     witness::Witness,
 };
 
@@ -26,6 +30,11 @@ async fn main() {
         Some(VERIFY) => {
             let r = VerifyArgs::from(arg_matches).await;
             handle_verify(r).await;
+        }
+        Some(SCAFFOLD) => {
+            let r = ScaffoldArgs::from(arg_matches);
+            scaffold::huff_template(r.project_name.as_str());
+            println!("\nGet started:\ncd {}", r.project_name);
         }
         _ => unreachable!("command not found"),
     }

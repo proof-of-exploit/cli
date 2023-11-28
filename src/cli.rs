@@ -18,6 +18,7 @@ pub const EXPLOIT: &str = "exploit";
 pub const TEST: &str = "test";
 pub const PROVE: &str = "prove";
 pub const VERIFY: &str = "verify";
+pub const SCAFFOLD: &str = "scaffold";
 
 pub fn exploit_command() -> Command {
     command!(EXPLOIT)
@@ -28,9 +29,9 @@ pub fn exploit_command() -> Command {
         .subcommands([
             ProveArgs::apply(command!(TEST)).about("Test the exploit using MockProver (~15G RAM)"),
             ProveArgs::apply(command!(PROVE)).about("Generate proof using RealProver (200G+ RAM)"),
-            VerifyArgs::apply(command!(VERIFY))
-                .about("Verify zk proofs")
-                .after_help("after verify help"),
+            VerifyArgs::apply(command!(VERIFY)).about("Verify zk proofs"),
+            ScaffoldArgs::apply(command!(SCAFFOLD))
+                .about("Scaffold new project for writing exploit"),
         ])
         .subcommand_required(true)
 }
@@ -162,25 +163,6 @@ impl VerifyArgs {
     }
 }
 
-fn parse_srs_path(arg_matches: &ArgMatches) -> PathBuf {
-    let srs_input: String =
-        parse_optional(arg_matches, "srs").expect("please provide --srs or SRS_PATH");
-    // TODO add default SRS path
-    let mut srs_path = PathBuf::from_str(".").unwrap();
-    if !srs_input.is_empty() {
-        srs_path = srs_path.join(srs_input);
-    }
-    create_dir_all(srs_path.clone()).unwrap();
-    srs_path
-}
-
-fn parse_optional<T: FromStr>(am: &ArgMatches, id: &str) -> Option<T>
-where
-    <T as std::str::FromStr>::Err: std::fmt::Debug,
-{
-    am.get_one::<String>(id).map(|val| val.parse().unwrap())
-}
-
 pub async fn handle_verify(args: VerifyArgs) {
     let my_version = Version::from_str(env!("CARGO_PKG_VERSION")).unwrap();
     if my_version < args.proof.version {
@@ -210,4 +192,41 @@ pub async fn handle_verify(args: VerifyArgs) {
     } else {
         println!("\nTo view challenge source code, use --unpack flag.");
     }
+}
+
+pub struct ScaffoldArgs {
+    pub project_name: String,
+}
+
+impl ScaffoldArgs {
+    pub fn apply(c: clap::Command) -> clap::Command {
+        c.arg(arg!(--name <NAME> "Enter project name"))
+            .arg_required_else_help(true)
+    }
+
+    pub fn from(arg_matches: Option<&ArgMatches>) -> Self {
+        let arg_matches = arg_matches.unwrap();
+        let project_name =
+            parse_optional(arg_matches, "name").expect("please provide project name using --name");
+        Self { project_name }
+    }
+}
+
+fn parse_srs_path(arg_matches: &ArgMatches) -> PathBuf {
+    let srs_input: String =
+        parse_optional(arg_matches, "srs").expect("please provide --srs or SRS_PATH");
+    // TODO add default SRS path
+    let mut srs_path = PathBuf::from_str(".").unwrap();
+    if !srs_input.is_empty() {
+        srs_path = srs_path.join(srs_input);
+    }
+    create_dir_all(srs_path.clone()).unwrap();
+    srs_path
+}
+
+pub fn parse_optional<T: FromStr>(am: &ArgMatches, id: &str) -> Option<T>
+where
+    <T as std::str::FromStr>::Err: std::fmt::Debug,
+{
+    am.get_one::<String>(id).map(|val| val.parse().unwrap())
 }
