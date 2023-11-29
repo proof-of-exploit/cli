@@ -65,7 +65,7 @@ impl ProveArgs {
             .arg(arg!(--"exploit-balance" <NUMBER> "Enter ether amount to fund 0xbada55 address" ))
             .arg(arg!(--gas <NUMBER> "Enter amount of gas for exploit tx" ))
             .arg(arg!(--srs <PATH> "Enter the dir for srs params" ))
-            .arg(arg!(--out "Path for output proof.json file" ))
+            .arg(arg!(--out <PATH> "Path for output proof.json file" ))
             .arg(arg!(--ipfs "Publish the proof to IPFS" ))
             .arg(arg!(--"max-rws" <NUMBER>))
             .arg(arg!(--"max-copy-rows" <NUMBER>))
