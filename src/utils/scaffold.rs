@@ -12,7 +12,7 @@ pub fn huff_template(project_name: &str) {
 pub fn use_template(git_url: &str, project_name: &str) {
     let next_dir = current_dir().unwrap().join(project_name);
     let next_dir = next_dir.to_str().unwrap();
-    run(format!("git clone {git_url} {project_name}",).as_str());
+    run(format!("git clone --recursive {git_url} {project_name}",).as_str());
     run_at(next_dir, "rm -rf .git");
     run_at(next_dir, "git init");
     run_at(next_dir, "git add .");
