@@ -1,68 +1,38 @@
-use super::proof::Proof;
+use super::{proof::Proof, srs::VerifierSRS};
 use crate::error::Error;
 use core::slice::SlicePattern;
 use eth_types::{keccak256, H256};
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr, G1Affine},
-    plonk::{verify_proof, VerifyingKey},
+    plonk::verify_proof,
     poly::kzg::{
-        commitment::{KZGCommitmentScheme, ParamsKZG},
-        multiopen::VerifierSHPLONK,
-        strategy::SingleStrategy,
+        commitment::KZGCommitmentScheme, multiopen::VerifierSHPLONK, strategy::SingleStrategy,
     },
     transcript::{Blake2bRead, Challenge255, TranscriptReadBuffer},
-    SerdeFormat,
 };
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-};
-use zkevm_circuits::super_circuit::SuperCircuit;
-
-// use crate::{derive_circuit_name, derive_k, CircuitExt};
+use std::path::PathBuf;
 
 // type PlonkVerifier = verifier::plonk::PlonkVerifier<KzgAs<Bn256, Gwc19>>;
 
-const SERDE_FORMAT: SerdeFormat = SerdeFormat::RawBytes;
-
 pub struct RealVerifier {
-    pub general_params: ParamsKZG<Bn256>,
-    pub verifier_params: ParamsKZG<Bn256>,
-    pub circuit_verifying_key: VerifyingKey<G1Affine>,
+    pub srs: VerifierSRS,
 }
 
 impl RealVerifier {
     pub fn load_srs(srs_path: PathBuf, proof: &Proof) -> Self {
-        let path = srs_path.join(Path::new(&format!("kzg_general_params_{}", proof.degree)));
-        let mut file = File::open(path).unwrap();
-        let general_params = ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT).unwrap();
-
-        let path = srs_path.join(Path::new(&format!("kzg_verifier_params_{}", proof.degree)));
-        let mut file = File::open(path).unwrap();
-        let verifier_params = ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT).unwrap();
-
-        let verifying_key_path = srs_path.join(Path::new(&format!(
-            "{}_verifying_key_{}",
-            proof.circuit_name, proof.degree
-        )));
-        let mut file = File::open(verifying_key_path).unwrap();
-        let circuit_verifying_key = VerifyingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
-            &mut file,
-            SERDE_FORMAT,
-            proof.circuit_params(),
-        )
-        .unwrap();
-
         Self {
-            general_params,
-            verifier_params,
-            circuit_verifying_key,
+            srs: VerifierSRS::load(
+                srs_path,
+                proof.degree,
+                proof.circuit_params(),
+                proof.fixed_circuit_params,
+            ),
         }
     }
 
     pub async fn verify(&self, proof: &Proof) -> Result<(), Error> {
-        let (_, proof_data, instances, public_data, _, _) = proof.unpack();
-        let strategy = SingleStrategy::new(&self.general_params);
+        let (_, proof_data, instances, public_data, _) = proof.unpack();
+        let strategy = SingleStrategy::new(&self.srs.general_params);
         let instance_refs_intermediate = instances.iter().map(|v| &v[..]).collect::<Vec<&[Fr]>>();
         let mut verifier_transcript =
             Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_data[..]);
@@ -75,8 +45,8 @@ impl RealVerifier {
             Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
             SingleStrategy<'_, Bn256>,
         >(
-            &self.verifier_params,
-            &self.circuit_verifying_key,
+            &self.srs.verifier_params,
+            &self.srs.circuit_verifying_key,
             strategy,
             &[&instance_refs_intermediate],
             &mut verifier_transcript,

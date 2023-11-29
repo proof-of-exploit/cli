@@ -1,5 +1,6 @@
 use super::{super::solidity::Artifact, helpers::FrWrapper, helpers::SuperCircuitParamsWrapper};
 use crate::error::Error;
+use bus_mapping::circuit_input_builder::FixedCParams;
 use ethers::types::Bytes;
 use halo2_proofs::halo2curves::bn256::Fr;
 use semver::Version;
@@ -19,19 +20,20 @@ pub struct Proof {
     pub degree: u32,
     pub data: Bytes,
     instances: Vec<Vec<FrWrapper>>,
-    pub circuit_name: String,
     circuit_params: SuperCircuitParamsWrapper,
+    pub fixed_circuit_params: FixedCParams,
     pub public_data: PublicData,
     pub challenge_artifact: Option<Artifact>,
 }
 
 impl Proof {
+    #[allow(clippy::too_many_arguments)]
     pub fn from(
         degree: u32,
         proof: Vec<u8>,
         instances: Vec<Vec<Fr>>,
-        circuit_name: String,
         circuit_params: SuperCircuitParams<Fr>,
+        fixed_circuit_params: FixedCParams,
         public_data: PublicData,
         challenge_artifact: Option<Artifact>,
     ) -> Self {
@@ -44,7 +46,7 @@ impl Proof {
                 .map(|column| column.iter().map(|element| FrWrapper(*element)).collect())
                 .collect(),
             circuit_params: SuperCircuitParamsWrapper::wrap(circuit_params),
-            circuit_name,
+            fixed_circuit_params,
             public_data,
             challenge_artifact,
         }
@@ -65,16 +67,7 @@ impl Proof {
         self.circuit_params.clone().unwrap()
     }
 
-    pub fn unpack(
-        &self,
-    ) -> (
-        u32,
-        Bytes,
-        Vec<Vec<Fr>>,
-        PublicData,
-        String,
-        SuperCircuitParams<Fr>,
-    ) {
+    pub fn unpack(&self) -> (u32, Bytes, Vec<Vec<Fr>>, PublicData, SuperCircuitParams<Fr>) {
         let instances = self.instances();
         let circuit_params = self.circuit_params();
         (
@@ -82,7 +75,6 @@ impl Proof {
             self.data.clone(),
             instances,
             self.public_data.clone(),
-            self.circuit_name.clone(),
             circuit_params,
         )
     }
