@@ -6,6 +6,7 @@ use std::env;
 pub struct Env {
     pub eth_rpc_url: Option<String>,
     pub fork_block_number: Option<usize>,
+    pub geth_rpc_url: Option<String>,
     pub challenge_path: Option<String>,
     pub exploit_path: Option<String>,
     pub exploit_balance: Option<String>,
@@ -31,6 +32,12 @@ impl Env {
         };
         let fork_block_number = match env::var("FORK_BLOCK_NUMBER") {
             Ok(val) => Some(U64::from_str_radix(&val, 10).unwrap().as_usize()),
+            Err(_) => None,
+        };
+
+        // temp params
+        let geth_rpc_url = match env::var("GETH_RPC_URL") {
+            Ok(val) => Some(val),
             Err(_) => None,
         };
 
@@ -90,6 +97,7 @@ impl Env {
         Env {
             eth_rpc_url,
             fork_block_number,
+            geth_rpc_url,
             challenge_path,
             exploit_path,
             exploit_balance,

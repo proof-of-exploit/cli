@@ -79,7 +79,7 @@ impl ProveArgs {
         let rpc = parse_optional(arg_matches, "rpc")
             .or(env.eth_rpc_url.clone())
             .expect("please provide --rpc or ETH_RPC_URL");
-        let geth_rpc = parse_optional(arg_matches, "geth-rpc");
+        let geth_rpc = parse_optional(arg_matches, "geth-rpc").or(env.geth_rpc_url.clone());
         let block = parse_optional(arg_matches, "block").or(env.fork_block_number);
         let challenge_input = parse_optional(arg_matches, "challenge")
             .or(env.challenge_path.clone())
