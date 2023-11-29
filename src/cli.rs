@@ -45,6 +45,7 @@ pub struct ProveArgs {
     pub exploit_balance: U256,
     pub gas: Option<usize>,
     pub srs_path: PathBuf,
+    pub proof_out_path: Option<String>,
     pub ipfs: bool,
     pub max_rws: usize,
     pub max_copy_rows: usize,
@@ -64,6 +65,7 @@ impl ProveArgs {
             .arg(arg!(--"exploit-balance" <NUMBER> "Enter ether amount to fund 0xbada55 address" ))
             .arg(arg!(--gas <NUMBER> "Enter amount of gas for exploit tx" ))
             .arg(arg!(--srs <PATH> "Enter the dir for srs params" ))
+            .arg(arg!(--out "Path for output proof.json file" ))
             .arg(arg!(--ipfs "Publish the proof to IPFS" ))
             .arg(arg!(--"max-rws" <NUMBER>))
             .arg(arg!(--"max-copy-rows" <NUMBER>))
@@ -96,6 +98,7 @@ impl ProveArgs {
         .expect("please provide ether amount correctly for --exploit-balance");
         let gas = parse_optional(arg_matches, "gas");
         let srs_path = parse_srs_path(arg_matches, env);
+        let proof_out_path = parse_optional(arg_matches, "out");
         let ipfs = arg_matches.get_flag("ipfs");
         let max_rws = parse_optional(arg_matches, "max-rws").unwrap_or(env.max_rws.unwrap_or(1000));
         let max_copy_rows = parse_optional(arg_matches, "max-copy-rows")
@@ -118,6 +121,7 @@ impl ProveArgs {
             exploit_balance,
             gas,
             srs_path,
+            proof_out_path,
             ipfs,
             max_rws,
             max_copy_rows,

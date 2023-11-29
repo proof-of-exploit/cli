@@ -80,6 +80,7 @@ impl Proof {
     }
 
     pub fn write_to_file(&self, path: &PathBuf) -> Result<(), Error> {
+        // TODO ensure that parent dir exists
         let mut file = File::create(path)?;
         file.write_all(serde_json::to_string(self)?.as_bytes())
             .unwrap();

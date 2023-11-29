@@ -23,7 +23,7 @@ use ethers::{
 };
 use halo2_proofs::dev::MockProver;
 use std::{
-    path::Path,
+    path::PathBuf,
     process,
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
@@ -224,15 +224,15 @@ impl Witness {
         let mut proof = prover.prove().unwrap();
         proof.challenge_artifact = Some(args.challenge_artifact);
 
-        // TODO don't write to SRS directory
-        let proof_path = args.srs_path.join(Path::new(&format!(
-            "proof_{}_{}.json",
-            self.k,
+        let proof_out_path = args.proof_out_path.unwrap_or(format!(
+            "proof_{}.json",
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs()
-        )));
+        ));
+
+        let proof_path = PathBuf::from(proof_out_path);
         println!("Writing proof to {}", proof_path.display());
         proof.write_to_file(&proof_path).unwrap();
         println!("Success!");
