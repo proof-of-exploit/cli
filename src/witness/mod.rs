@@ -218,7 +218,7 @@ impl Witness {
 
     pub async fn prove(self, args: ProveArgs) {
         println!("Running RealProver");
-        let mut prover = RealProver::from(self.circuit, self.k, Some(args.srs_path.clone()));
+        let mut prover = RealProver::from(self.circuit, self.k, args.srs_path.clone());
 
         println!("Generating proof...");
         let mut proof = prover.prove().unwrap();
