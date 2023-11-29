@@ -89,9 +89,12 @@ impl ProveArgs {
             .or(env.exploit_path.clone())
             .unwrap_or("./src/Exploit.huff".to_string());
         let exploit_bytecode = compile_huff(exploit_input);
-        let exploit_balance =
-            parse_ether(parse_optional(arg_matches, "exploit-balance").unwrap_or("0".to_string()))
-                .expect("please provide ether amount correctly for --exploit-balance");
+        let exploit_balance = parse_ether(
+            parse_optional(arg_matches, "exploit-balance")
+                .or(env.exploit_balance.clone())
+                .unwrap_or("0".to_string()),
+        )
+        .expect("please provide ether amount correctly for --exploit-balance");
         let gas = parse_optional(arg_matches, "gas");
         let srs_path = parse_srs_path(arg_matches, env);
         let ipfs = arg_matches.get_flag("ipfs");

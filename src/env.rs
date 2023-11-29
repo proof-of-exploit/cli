@@ -8,6 +8,7 @@ pub struct Env {
     pub fork_block_number: Option<usize>,
     pub challenge_path: Option<String>,
     pub exploit_path: Option<String>,
+    pub exploit_balance: Option<String>,
     pub srs_path: Option<String>,
     pub max_rws: Option<usize>,
     pub max_copy_rows: Option<usize>,
@@ -48,6 +49,10 @@ impl Env {
                 Err(_) => None,
             },
         };
+        let exploit_balance = match env::var("EXPLOIT_BALANCE") {
+            Ok(val) => Some(val),
+            Err(_) => None,
+        };
 
         // zkEVM params
         let srs_path = match env::var("SRS") {
@@ -87,6 +92,7 @@ impl Env {
             fork_block_number,
             challenge_path,
             exploit_path,
+            exploit_balance,
             srs_path,
             max_rws,
             max_copy_rows,
