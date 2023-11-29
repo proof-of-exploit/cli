@@ -8,7 +8,7 @@ use std::{
     collections::HashMap,
     fs,
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
     process::{self, Command, Stdio},
     str::FromStr,
 };
@@ -127,10 +127,20 @@ struct OutputBytecode {
     object: Bytes,
 }
 
+// TODO support multiple files
 fn file_to_artifact(source_path_string: String) -> Result<Input, Error> {
+    // TODO when there are multiple files, find the common initial path and strip it
+    // For a single file, the stripped path is the file name itself
+    let path = PathBuf::from(source_path_string.clone());
+    let stripped_path = path
+        .file_name()
+        .expect("solidity input should be a file")
+        .to_string_lossy()
+        .to_string();
+
     Ok(Input {
         language: "Solidity".to_string(),
-        sources: hashmap![source_path_string.clone() => InputSource {
+        sources: hashmap![stripped_path => InputSource {
             content: fs::read_to_string(source_path_string)?,
         }],
         settings: InputSettings {
@@ -139,7 +149,7 @@ fn file_to_artifact(source_path_string: String) -> Result<Input, Error> {
                 runs: 200,
             },
             evm_version: EvmVersion::Paris,
-            output_selection: hashmap![ "*".into() => hashmap!["*".into() => vec!["evm.bytecode.object".into(), "evm.deployedBytecode.object".into()]]],
+            output_selection: hashmap!["*".into() => hashmap!["*".into() => vec!["evm.bytecode.object".into(), "evm.deployedBytecode.object".into()]]],
         },
     })
 }
