@@ -117,7 +117,6 @@ struct OutputContract {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct OutputContractEvm {
-    bytecode: OutputBytecode,
     #[serde(rename = "deployedBytecode")]
     deployed_bytecode: OutputBytecode,
 }
@@ -149,7 +148,7 @@ fn file_to_artifact(source_path_string: String) -> Result<Input, Error> {
                 runs: 200,
             },
             evm_version: EvmVersion::Paris,
-            output_selection: hashmap!["*".into() => hashmap!["*".into() => vec!["evm.bytecode.object".into(), "evm.deployedBytecode.object".into()]]],
+            output_selection: hashmap!["*".into() => hashmap!["*".into() => vec!["evm.deployedBytecode.object".into()]]],
         },
     })
 }
@@ -211,17 +210,6 @@ impl Artifact {
             return Err(Error::InternalError("compilation not matching"));
         }
         Ok(())
-    }
-
-    pub fn get_creation_bytecode(&self, search_contract_name: String) -> Result<Bytes, Error> {
-        for (_, contracts) in self.output.contracts.iter() {
-            for (contract_name, contract) in contracts.iter() {
-                if &search_contract_name == contract_name {
-                    return Ok(contract.evm.bytecode.object.clone());
-                }
-            }
-        }
-        Err(Error::InternalError("could not find contract"))
     }
 
     pub fn get_deployed_bytecode(&self, search_contract_name: String) -> Result<Bytes, Error> {
