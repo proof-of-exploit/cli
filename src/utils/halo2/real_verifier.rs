@@ -49,7 +49,7 @@ impl RealVerifier {
         let circuit_verifying_key = VerifyingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
             &mut file,
             SERDE_FORMAT,
-            proof.circuit_params.clone().unwrap(),
+            proof.circuit_params(),
         )
         .unwrap();
 

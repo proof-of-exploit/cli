@@ -20,7 +20,7 @@ pub struct Proof {
     pub data: Bytes,
     instances: Vec<Vec<FrWrapper>>,
     pub circuit_name: String,
-    pub circuit_params: SuperCircuitParamsWrapper, // TODO make this private since its exposing wrapper
+    circuit_params: SuperCircuitParamsWrapper,
     pub public_data: PublicData,
     pub challenge_artifact: Option<Artifact>,
 }
