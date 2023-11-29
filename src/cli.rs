@@ -2,10 +2,9 @@ use crate::{
     env::Env,
     utils::{
         anvil::types::zkevm_types::Bytes,
+        halo2::{proof::Proof, real_verifier::RealVerifier},
         huff::compile_huff,
-        ipfs,
-        real_prover::{Proof, RealVerifier},
-        solidity,
+        ipfs, solidity,
     },
 };
 use clap::{arg, command, ArgMatches, Command};

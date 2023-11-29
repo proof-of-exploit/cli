@@ -5,8 +5,8 @@ use crate::{
     constants::{MAX_CALLDATA, MAX_TXS, RANDOMNESS},
     utils::{
         anvil::{conversion::Conversion, types::anvil_types},
+        halo2::real_prover::RealProver,
         ipfs,
-        real_prover::RealProver,
     },
     witness::inputs_builder::BuilderClient,
 };

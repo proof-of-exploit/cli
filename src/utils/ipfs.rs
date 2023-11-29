@@ -1,4 +1,4 @@
-use super::real_prover::Proof;
+use super::halo2::proof::Proof;
 use crate::error::Error;
 use pinata_sdk::{PinByJson, PinataApi};
 use reqwest;

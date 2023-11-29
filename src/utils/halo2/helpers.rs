@@ -8,6 +8,7 @@ use std::{
     fmt::{self, Debug, Formatter},
     str::FromStr,
 };
+use zkevm_circuits::super_circuit::SuperCircuitParams;
 
 pub fn derive_circuit_name<ConcreteCircuit>(circuit: ConcreteCircuit) -> String
 where
@@ -62,5 +63,23 @@ impl<'de> Visitor<'de> for FrVisitor {
         let mut bytes = bytes.as_fixed_bytes().to_owned();
         bytes.reverse();
         Ok(FrWrapper(Fr::from_bytes(&bytes).unwrap()))
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SuperCircuitParamsWrapper {
+    pub mock_randomness: FrWrapper,
+}
+
+impl SuperCircuitParamsWrapper {
+    pub fn wrap(value: SuperCircuitParams<Fr>) -> Self {
+        Self {
+            mock_randomness: FrWrapper(value.mock_randomness),
+        }
+    }
+    pub fn unwrap(self) -> SuperCircuitParams<Fr> {
+        SuperCircuitParams {
+            mock_randomness: self.mock_randomness.0,
+        }
     }
 }
