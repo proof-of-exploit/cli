@@ -18,17 +18,17 @@ async fn main() {
 
     match subcommand_name {
         Some(TEST) => {
-            let r = ProveArgs::from(arg_matches, env);
+            let r = ProveArgs::from(arg_matches, &env);
             let w = Witness::gen(&r).await;
             w.assert();
         }
         Some(PROVE) => {
-            let r = ProveArgs::from(arg_matches, env);
+            let r = ProveArgs::from(arg_matches, &env);
             let w = Witness::gen(&r).await;
             w.prove(r).await;
         }
         Some(VERIFY) => {
-            let r = VerifyArgs::from(arg_matches).await;
+            let r = VerifyArgs::from(arg_matches, &env).await;
             handle_verify(r).await;
         }
         Some(SCAFFOLD) => {

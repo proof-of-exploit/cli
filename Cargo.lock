@@ -4312,6 +4312,7 @@ dependencies = [
  "ethers-core 2.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures",
  "halo2_proofs",
+ "home",
  "itertools",
  "partial-mpt",
  "pinata-sdk",

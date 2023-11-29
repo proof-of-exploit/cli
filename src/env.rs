@@ -8,6 +8,7 @@ pub struct Env {
     pub fork_block_number: Option<usize>,
     pub challenge_path: Option<String>,
     pub exploit_path: Option<String>,
+    pub srs_path: Option<String>,
     pub max_rws: Option<usize>,
     pub max_copy_rows: Option<usize>,
     pub max_exp_steps: Option<usize>,
@@ -20,6 +21,7 @@ pub struct Env {
 impl Env {
     pub fn load() -> Env {
         dotenv().ok();
+        // TODO refactor - remove duplicate code
 
         // anvil params
         let eth_rpc_url = match env::var("ETH_RPC_URL") {
@@ -48,6 +50,13 @@ impl Env {
         };
 
         // zkEVM params
+        let srs_path = match env::var("SRS") {
+            Ok(val) => Some(val),
+            Err(_) => match env::var("SRS_PATH") {
+                Ok(val) => Some(val),
+                Err(_) => None,
+            },
+        };
         let max_rws = match env::var("MAX_ROWS") {
             Ok(val) => Some(U64::from_str_radix(&val, 10).unwrap().as_usize()),
             Err(_) => None,
@@ -78,6 +87,7 @@ impl Env {
             fork_block_number,
             challenge_path,
             exploit_path,
+            srs_path,
             max_rws,
             max_copy_rows,
             max_exp_steps,

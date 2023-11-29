@@ -38,6 +38,7 @@ reqwest = { version = "0.11" }
 pinata-sdk = "1.1.0"
 svm-rs = "0.3.3"
 semver = { version = "1.0", features = ["serde"] }
+home = "0.5.5"
 
 # [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
 # bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit", features = [ "test" ] }

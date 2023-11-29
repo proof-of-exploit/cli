@@ -11,6 +11,7 @@ use crate::{
 use clap::{arg, command, ArgMatches, Command};
 use eth_types::U256;
 use ethers::utils::parse_ether;
+use home::home_dir;
 use semver::Version;
 use std::{fs::create_dir_all, path::PathBuf, process, str::FromStr};
 
@@ -73,26 +74,26 @@ impl ProveArgs {
             .arg(arg!(--"max-keccak-rows" <NUMBER>))
     }
 
-    pub fn from(arg_matches: Option<&ArgMatches>, env: Env) -> Self {
+    pub fn from(arg_matches: Option<&ArgMatches>, env: &Env) -> Self {
         let arg_matches = arg_matches.unwrap();
         let rpc = parse_optional(arg_matches, "rpc")
-            .or(env.eth_rpc_url)
+            .or(env.eth_rpc_url.clone())
             .expect("please provide --rpc or ETH_RPC_URL");
         let geth_rpc = parse_optional(arg_matches, "geth-rpc");
         let block = parse_optional(arg_matches, "block").or(env.fork_block_number);
         let challenge_input = parse_optional(arg_matches, "challenge")
-            .or(env.challenge_path)
+            .or(env.challenge_path.clone())
             .unwrap_or("./src/Challenge.sol".to_string());
         let challenge_artifact = solidity::Artifact::from_source(challenge_input);
         let exploit_input = parse_optional(arg_matches, "exploit")
-            .or(env.exploit_path)
+            .or(env.exploit_path.clone())
             .unwrap_or("./src/Exploit.huff".to_string());
         let exploit_bytecode = compile_huff(exploit_input);
         let exploit_balance =
             parse_ether(parse_optional(arg_matches, "exploit-balance").unwrap_or("0".to_string()))
                 .expect("please provide ether amount correctly for --exploit-balance");
         let gas = parse_optional(arg_matches, "gas");
-        let srs_path = parse_srs_path(arg_matches);
+        let srs_path = parse_srs_path(arg_matches, env);
         let ipfs = arg_matches.get_flag("ipfs");
         let max_rws = parse_optional(arg_matches, "max-rws").unwrap_or(env.max_rws.unwrap_or(1000));
         let max_copy_rows = parse_optional(arg_matches, "max-copy-rows")
@@ -139,9 +140,9 @@ impl VerifyArgs {
             .arg(arg!(--unpack <PATH> "Enter path to unpack challenge solidity code" ))
     }
 
-    pub async fn from(arg_matches: Option<&ArgMatches>) -> Self {
+    pub async fn from(arg_matches: Option<&ArgMatches>, env: &Env) -> Self {
         let arg_matches = arg_matches.unwrap();
-        let srs_path = parse_srs_path(arg_matches);
+        let srs_path = parse_srs_path(arg_matches, env);
 
         let proof_input: String = parse_optional(arg_matches, "proof")
             .expect("please provide the path to proof json file using --proof");
@@ -212,14 +213,13 @@ impl ScaffoldArgs {
     }
 }
 
-fn parse_srs_path(arg_matches: &ArgMatches) -> PathBuf {
-    let srs_input: String =
-        parse_optional(arg_matches, "srs").expect("please provide --srs or SRS_PATH");
-    // TODO add default SRS path
-    let mut srs_path = PathBuf::from_str(".").unwrap();
-    if !srs_input.is_empty() {
-        srs_path = srs_path.join(srs_input);
-    }
+fn parse_srs_path(arg_matches: &ArgMatches, env: &Env) -> PathBuf {
+    let srs_input = parse_optional(arg_matches, "srs").or(env.srs_path.clone());
+    let srs_path = if let Some(srs_input) = srs_input {
+        PathBuf::from(srs_input)
+    } else {
+        home_dir().unwrap().join(".proof-of-exploit-srs")
+    };
     create_dir_all(srs_path.clone()).unwrap();
     srs_path
 }
