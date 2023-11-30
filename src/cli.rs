@@ -18,6 +18,7 @@ pub const EXPLOIT: &str = "exploit";
 pub const TEST: &str = "test";
 pub const PROVE: &str = "prove";
 pub const VERIFY: &str = "verify";
+pub const PUBLISH: &str = "publish";
 pub const SCAFFOLD: &str = "scaffold";
 
 pub fn exploit_command() -> Command {
@@ -30,6 +31,7 @@ pub fn exploit_command() -> Command {
             ProveArgs::apply(command!(TEST)).about("Test the exploit using MockProver (~15G RAM)"),
             ProveArgs::apply(command!(PROVE)).about("Generate proof using RealProver (200G+ RAM)"),
             VerifyArgs::apply(command!(VERIFY)).about("Verify zk proofs"),
+            PublishArgs::apply(command!(PUBLISH)).about("Publish proof to IPFS"),
             ScaffoldArgs::apply(command!(SCAFFOLD))
                 .about("Scaffold new project for writing exploit"),
         ])
@@ -197,6 +199,25 @@ pub async fn handle_verify(args: VerifyArgs) {
         }
     } else {
         println!("\nTo view challenge source code, use --unpack flag.");
+    }
+}
+
+pub struct PublishArgs {
+    pub proof: Proof,
+}
+
+impl PublishArgs {
+    pub fn apply(c: clap::Command) -> clap::Command {
+        c.arg(arg!(--proof <PATH> "Enter the proof path" ))
+    }
+
+    pub fn from(arg_matches: Option<&ArgMatches>) -> Self {
+        let arg_matches = arg_matches.unwrap();
+        let proof_input: String = parse_optional(arg_matches, "proof")
+            .expect("please provide the path to proof json file using --proof");
+        let proof =
+            Proof::read_from_file(&PathBuf::from_str(proof_input.as_str()).unwrap()).unwrap();
+        Self { proof }
     }
 }
 

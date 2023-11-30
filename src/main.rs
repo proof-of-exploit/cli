@@ -1,10 +1,10 @@
 use proof_of_exploit::{
     cli::{
-        exploit_command, handle_verify, ProveArgs, ScaffoldArgs, VerifyArgs, PROVE, SCAFFOLD, TEST,
-        VERIFY,
+        exploit_command, handle_verify, ProveArgs, PublishArgs, ScaffoldArgs, VerifyArgs, PROVE,
+        PUBLISH, SCAFFOLD, TEST, VERIFY,
     },
     env::Env,
-    utils::scaffold,
+    utils::{ipfs, scaffold},
     witness::Witness,
 };
 
@@ -30,6 +30,11 @@ async fn main() {
         Some(VERIFY) => {
             let r = VerifyArgs::from(arg_matches, &env).await;
             handle_verify(r).await;
+        }
+        Some(PUBLISH) => {
+            let r = PublishArgs::from(arg_matches);
+            let hash = ipfs::publish(&r.proof).await.unwrap();
+            println!("Published proof to ipfs: {}", hash);
         }
         Some(SCAFFOLD) => {
             let r = ScaffoldArgs::from(arg_matches);
