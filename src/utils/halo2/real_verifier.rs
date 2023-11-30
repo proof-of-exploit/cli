@@ -37,7 +37,7 @@ impl RealVerifier {
         let mut verifier_transcript =
             Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_data[..]);
 
-        // verify zk proof
+        println!("Verifying proof...");
         verify_proof::<
             KZGCommitmentScheme<Bn256>,
             VerifierSHPLONK<'_, Bn256>,

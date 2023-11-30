@@ -179,7 +179,6 @@ pub async fn handle_verify(args: VerifyArgs) {
         );
     }
 
-    println!("Verifying proof...");
     let verifier = RealVerifier::load_srs(args.srs_path, &args.proof);
     if let Err(error) = verifier.verify(&args.proof).await {
         println!("Proof verification failed: {:?}", error);

@@ -7,7 +7,10 @@ use halo2_proofs::{
     SerdeFormat,
 };
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
-use std::{fs::File, path::PathBuf};
+use std::{
+    fs::{remove_file, File},
+    path::PathBuf,
+};
 use zkevm_circuits::super_circuit::{SuperCircuit, SuperCircuitParams};
 
 const SERDE_FORMAT: SerdeFormat = SerdeFormat::RawBytes;
@@ -105,8 +108,8 @@ fn circuit_proving_key_file_name(degree: u32, fcp: FixedCParams) -> String {
 
 fn load_general_params(srs_path: PathBuf, degree: u32) -> ParamsKZG<Bn256> {
     read_or_gen(
-        srs_path,
-        general_params_file_name(degree),
+        "general params",
+        srs_path.join(general_params_file_name(degree)),
         |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
         |mut file| {
             let rng = ChaChaRng::seed_from_u64(2);
@@ -124,8 +127,8 @@ fn load_verifier_params(
     general_params: &ParamsKZG<Bn256>,
 ) -> ParamsKZG<Bn256> {
     read_or_gen(
-        srs_path,
-        verifier_params_file_name(degree),
+        "verifier params",
+        srs_path.join(verifier_params_file_name(degree)),
         |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
         |mut file| {
             let verifier_params = general_params.verifier_params().to_owned();
@@ -143,8 +146,11 @@ fn load_circuit_verifying_key(
     general_params: &ParamsKZG<Bn256>,
 ) -> VerifyingKey<G1Affine> {
     read_or_gen(
-        srs_path,
-        circuit_verifying_key_file_name(degree, circuit.circuits_params),
+        "circuit verifying key",
+        srs_path.join(circuit_verifying_key_file_name(
+            degree,
+            circuit.circuits_params,
+        )),
         |file| {
             Ok(VerifyingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
                 file,
@@ -169,8 +175,11 @@ fn load_circuit_proving_key(
     circuit_verifying_key: &VerifyingKey<G1Affine>,
 ) -> ProvingKey<G1Affine> {
     read_or_gen(
-        srs_path,
-        circuit_proving_key_file_name(degree, circuit.circuits_params),
+        "circuit proving key",
+        srs_path.join(circuit_proving_key_file_name(
+            degree,
+            circuit.circuits_params,
+        )),
         |file| {
             Ok(ProvingKey::<G1Affine>::read::<File, SuperCircuit<Fr>>(
                 file,
@@ -196,27 +205,30 @@ where
     read(&mut file)
 }
 
-fn read_or_gen<T, F1, F2>(
-    srs_path: PathBuf,
-    file_name: String,
-    mut read: F1,
-    mut gen: F2,
-) -> Result<T, Error>
+fn read_or_gen<T, F1, F2>(label: &str, path: PathBuf, mut read: F1, mut gen: F2) -> Result<T, Error>
 where
     F1: FnMut(&mut File) -> Result<T, Error>,
     F2: FnMut(&mut File) -> Result<T, Error>,
 {
-    let path = srs_path.join(file_name);
-    match File::open(path.clone()) {
-        Ok(mut file) => {
-            // file exists, read it
-            read(&mut file)
-        }
-        Err(_) => {
-            // file does not exist, generate and write it
-            gen(&mut File::create(path).unwrap())
+    let file = File::open(path.clone());
+    if let Ok(mut file) = file {
+        println!("Reading {label}...");
+        match read(&mut file) {
+            Ok(result) => {
+                return Ok(result);
+            }
+            Err(e) => {
+                // Remove file and freshly create it in next step
+                println!("Failed {e:?}");
+                remove_file(path.clone())
+                    .unwrap_or_else(|_| panic!("Failed to remove file: {}", path.display()));
+            }
         }
     }
+
+    println!("Generating {label}...");
+    let result = gen(&mut File::create(path)?)?;
+    Ok(result)
 }
 
 fn circuit_params_str(fcp: FixedCParams) -> String {
