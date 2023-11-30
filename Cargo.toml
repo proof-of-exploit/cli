@@ -19,7 +19,6 @@ bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-cir
 eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main" }
 zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
-# snark-verifier-sdk = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", rev = "a440ff91" } 
 snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", rev = "a440ff91" } 
 ethers-core = "2.0.7"
 itertools = "0.10"
@@ -40,13 +39,13 @@ svm-rs = "0.3.3"
 semver = { version = "1.0", features = ["serde"] }
 home = "0.5.5"
 
-# [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
-# bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit", features = [ "test" ] }
-# eth-types = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
-# zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", branch = "proof-of-exploit" }
+[patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", rev = "fb284230" }
+eth-types = { git = "https://github.com/zemse/zkevm-circuits", rev = "fb284230" }
+zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", rev = "fb284230" }
 
 # for local development only
-[patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
-bus-mapping = { path = "../zkevm-circuits/bus-mapping" }
-eth-types = { path = "../zkevm-circuits/eth-types" }
-zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits" }
+# [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+# bus-mapping = { path = "../zkevm-circuits/bus-mapping" }
+# eth-types = { path = "../zkevm-circuits/eth-types" }
+# zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits" }
