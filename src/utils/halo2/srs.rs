@@ -26,7 +26,7 @@ pub struct SRS {
 impl SRS {
     pub fn load(circuit: &SuperCircuit<Fr>, degree: u32, srs_path: PathBuf) -> Self {
         let general_params = load_general_params(srs_path.clone(), degree);
-        let verifier_params = load_verifier_params(srs_path.clone(), degree, &general_params);
+        let verifier_params = general_params.verifier_params().clone();
         let circuit_verifying_key =
             load_circuit_verifying_key(srs_path.clone(), degree, circuit, &general_params);
         let circuit_proving_key = load_circuit_proving_key(
@@ -65,13 +65,14 @@ impl VerifierSRS {
         )
         .await
         .unwrap();
-        let verifier_params = read(
-            srs_path.clone(),
-            verifier_params_file_name(degree),
-            |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
-        )
-        .await
-        .unwrap();
+        let verifier_params = general_params.verifier_params().clone();
+        // let verifier_params = read(
+        //     srs_path.clone(),
+        //     verifier_params_file_name(degree),
+        //     |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
+        // )
+        // .await
+        // .unwrap();
         let circuit_verifying_key = read(
             srs_path,
             circuit_verifying_key_file_name(degree, fcp),
@@ -97,9 +98,9 @@ fn general_params_file_name(degree: u32) -> String {
     format!("kzg_general_params_{}", degree)
 }
 
-fn verifier_params_file_name(degree: u32) -> String {
-    format!("kzg_verifier_params_{}", degree)
-}
+// fn verifier_params_file_name(degree: u32) -> String {
+//     format!("kzg_verifier_params_{}", degree)
+// }
 
 fn circuit_verifying_key_file_name(degree: u32, fcp: FixedCParams) -> String {
     format!("PoX_verifying_key_{}_{}", degree, circuit_params_str(fcp))
@@ -124,23 +125,23 @@ fn load_general_params(srs_path: PathBuf, degree: u32) -> ParamsKZG<Bn256> {
     .expect("load_general_params should not fail")
 }
 
-fn load_verifier_params(
-    srs_path: PathBuf,
-    degree: u32,
-    general_params: &ParamsKZG<Bn256>,
-) -> ParamsKZG<Bn256> {
-    read_or_gen(
-        "verifier params",
-        srs_path.join(verifier_params_file_name(degree)),
-        |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
-        |mut file| {
-            let verifier_params = general_params.verifier_params().to_owned();
-            verifier_params.write_custom(&mut file, SERDE_FORMAT)?;
-            Ok(verifier_params)
-        },
-    )
-    .expect("load_verifier_params should not fail")
-}
+// fn load_verifier_params(
+//     srs_path: PathBuf,
+//     degree: u32,
+//     general_params: &ParamsKZG<Bn256>,
+// ) -> ParamsKZG<Bn256> {
+//     read_or_gen(
+//         "verifier params",
+//         srs_path.join(verifier_params_file_name(degree)),
+//         |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
+//         |mut file| {
+//             let verifier_params = general_params.verifier_params().to_owned();
+//             verifier_params.write_custom(&mut file, SERDE_FORMAT)?;
+//             Ok(verifier_params)
+//         },
+//     )
+//     .expect("load_verifier_params should not fail")
+// }
 
 fn load_circuit_verifying_key(
     srs_path: PathBuf,
@@ -206,7 +207,7 @@ where
     let path = srs_path.join(file_name.clone());
     if !path.exists() {
         if let Some(ipfs_hash) = get_ipfs_hash(file_name.clone()) {
-            println!("Downloading {file_name} from IPFS...");
+            println!("Downloading {file_name} from IPFS");
             ipfs::download_file(ipfs_hash, path.to_string_lossy().to_string()).await
         }
     }
@@ -256,7 +257,7 @@ fn circuit_params_str(fcp: FixedCParams) -> String {
 
 fn get_ipfs_hash(file_name: String) -> Option<String> {
     // TODO improve this code
-    if file_name == *"kzg_general_params_19" || file_name == *"kzg_verifier_params_19".to_string() {
+    if file_name == *"kzg_general_params_19" {
         Some("QmeJngu5KuP4NjCimnkZjoGHt5xUY2eSmoADiZTf6WUwHG".to_string())
     } else if file_name
         == *"PoX_verifying_key_19_40000_1_256_40000_40000_10000_20000_50000".to_string()

@@ -186,7 +186,14 @@ pub async fn handle_verify(args: VerifyArgs) {
         println!("Proof verification failed: {:?}", error);
         process::exit(1);
     } else {
-        println!("Success!");
+        println!("Proof verification success!");
+        println!(
+            "\nPublic Inputs:\nChallenge Codehash: {:?}\nExploit Stipend: {} ether",
+            args.proof.public_data.pox_challenge_codehash,
+            ethers::utils::format_ether(args.proof.public_data.pox_exploit_balance)
+                .parse::<f64>()
+                .unwrap()
+        );
     }
 
     if let Some(unpack_dir) = args.unpack_dir {

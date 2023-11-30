@@ -38,7 +38,6 @@ impl RealVerifier {
         let mut verifier_transcript =
             Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_data[..]);
 
-        println!("Verifying proof...");
         verify_proof::<
             KZGCommitmentScheme<Bn256>,
             VerifierSHPLONK<'_, Bn256>,
@@ -52,7 +51,7 @@ impl RealVerifier {
             &[&instance_refs_intermediate],
             &mut verifier_transcript,
         )?;
-        println!("- ZK proof verifies");
+        // println!("- ZK proof verifies");
 
         // verify public data to be image of instance
         let digest = public_data.get_rpi_digest_word::<Fr>();
@@ -77,7 +76,7 @@ impl RealVerifier {
                 ));
             }
             // println!("- Compiled codehash verified with public inputs");
-            println!("- Challenge codehash in public inputs");
+            // println!("- Challenge codehash in public inputs");
         } else {
             println!("Warning: Challenge artifact is not present in the proof");
         }
