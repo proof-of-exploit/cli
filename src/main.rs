@@ -33,8 +33,8 @@ async fn main() {
         }
         Some(PUBLISH) => {
             let r = PublishArgs::from(arg_matches);
-            let hash = ipfs::publish(&r.proof).await.unwrap();
-            println!("Published proof to ipfs: {}", hash);
+            let hash = ipfs::publish_file(r.file_path).await.unwrap();
+            println!("Published file to ipfs: {}", hash);
         }
         Some(SCAFFOLD) => {
             let r = ScaffoldArgs::from(arg_matches);

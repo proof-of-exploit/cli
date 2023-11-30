@@ -181,7 +181,7 @@ pub async fn handle_verify(args: VerifyArgs) {
         );
     }
 
-    let verifier = RealVerifier::load_srs(args.srs_path, &args.proof);
+    let verifier = RealVerifier::load_srs(args.srs_path, &args.proof).await;
     if let Err(error) = verifier.verify(&args.proof).await {
         println!("Proof verification failed: {:?}", error);
         process::exit(1);
@@ -203,21 +203,19 @@ pub async fn handle_verify(args: VerifyArgs) {
 }
 
 pub struct PublishArgs {
-    pub proof: Proof,
+    pub file_path: String,
 }
 
 impl PublishArgs {
     pub fn apply(c: clap::Command) -> clap::Command {
-        c.arg(arg!(--proof <PATH> "Enter the proof path" ))
+        c.arg(arg!(--file <PATH> "Enter the file path" ))
     }
 
     pub fn from(arg_matches: Option<&ArgMatches>) -> Self {
         let arg_matches = arg_matches.unwrap();
-        let proof_input: String = parse_optional(arg_matches, "proof")
-            .expect("please provide the path to proof json file using --proof");
-        let proof =
-            Proof::read_from_file(&PathBuf::from_str(proof_input.as_str()).unwrap()).unwrap();
-        Self { proof }
+        let file_path: String = parse_optional(arg_matches, "file")
+            .expect("please provide the path to file using --file");
+        Self { file_path }
     }
 }
 

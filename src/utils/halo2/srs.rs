@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::{error::Error, utils::ipfs};
 use bus_mapping::circuit_input_builder::FixedCParams;
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr, G1Affine},
@@ -52,7 +52,7 @@ pub struct VerifierSRS {
 }
 
 impl VerifierSRS {
-    pub fn load(
+    pub async fn load(
         srs_path: PathBuf,
         degree: u32,
         circuit_params: SuperCircuitParams<Fr>,
@@ -63,12 +63,14 @@ impl VerifierSRS {
             general_params_file_name(degree),
             |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
         )
+        .await
         .unwrap();
         let verifier_params = read(
             srs_path.clone(),
             verifier_params_file_name(degree),
             |mut file| Ok(ParamsKZG::<Bn256>::read_custom(&mut file, SERDE_FORMAT)?),
         )
+        .await
         .unwrap();
         let circuit_verifying_key = read(
             srs_path,
@@ -81,6 +83,7 @@ impl VerifierSRS {
                 )?)
             },
         )
+        .await
         .unwrap();
         Self {
             general_params,
@@ -196,11 +199,17 @@ fn load_circuit_proving_key(
     .expect("load_circuit_proving_key should not fail")
 }
 
-fn read<T, F>(srs_path: PathBuf, file_name: String, mut read: F) -> Result<T, Error>
+async fn read<T, F>(srs_path: PathBuf, file_name: String, mut read: F) -> Result<T, Error>
 where
     F: FnMut(&mut File) -> Result<T, Error>,
 {
-    let path = srs_path.join(file_name);
+    let path = srs_path.join(file_name.clone());
+    if !path.exists() {
+        if let Some(ipfs_hash) = get_ipfs_hash(file_name.clone()) {
+            println!("Downloading {file_name} from IPFS...");
+            ipfs::download_file(ipfs_hash, path.to_string_lossy().to_string()).await
+        }
+    }
     let mut file = File::open(path)?;
     read(&mut file)
 }
@@ -243,4 +252,17 @@ fn circuit_params_str(fcp: FixedCParams) -> String {
         fcp.max_evm_rows,
         fcp.max_keccak_rows,
     )
+}
+
+fn get_ipfs_hash(file_name: String) -> Option<String> {
+    // TODO improve this code
+    if file_name == *"kzg_general_params_19" || file_name == *"kzg_verifier_params_19".to_string() {
+        Some("QmeJngu5KuP4NjCimnkZjoGHt5xUY2eSmoADiZTf6WUwHG".to_string())
+    } else if file_name
+        == *"PoX_verifying_key_19_40000_1_256_40000_40000_10000_20000_50000".to_string()
+    {
+        Some("QmWGqxjCWrReL3WQy86g56dJ1hKY9miB91rnjLzHeeGivo".to_string())
+    } else {
+        None
+    }
 }

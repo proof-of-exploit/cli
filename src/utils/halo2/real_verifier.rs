@@ -19,14 +19,15 @@ pub struct RealVerifier {
 }
 
 impl RealVerifier {
-    pub fn load_srs(srs_path: PathBuf, proof: &Proof) -> Self {
+    pub async fn load_srs(srs_path: PathBuf, proof: &Proof) -> Self {
         Self {
             srs: VerifierSRS::load(
                 srs_path,
                 proof.degree,
                 proof.circuit_params(),
                 proof.fixed_circuit_params,
-            ),
+            )
+            .await,
         }
     }
 
