@@ -64,6 +64,7 @@ impl RealProver {
             self.circuit.circuits_params,
             public_data,
             None,
+            None,
         ))
     }
 

@@ -20,6 +20,11 @@ pub async fn handle_verify(args: VerifyArgs) {
         process::exit(1);
     } else {
         println!("Proof verification success!\n");
+
+        if let Some(summary) = args.proof.summary {
+            println!("Summary: {}\n", summary);
+        }
+
         println!("Public Inputs:");
         println!("  Chain Id: {:?}", args.proof.public_data.chain_id,);
         println!(

@@ -24,6 +24,8 @@ pub struct Proof {
     pub fixed_circuit_params: FixedCParams,
     pub public_data: PublicData,
     pub challenge_artifact: Option<Artifact>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
 }
 
 impl Proof {
@@ -36,6 +38,7 @@ impl Proof {
         fixed_circuit_params: FixedCParams,
         public_data: PublicData,
         challenge_artifact: Option<Artifact>,
+        summary: Option<String>,
     ) -> Self {
         Self {
             version: Version::from_str(env!("CARGO_PKG_VERSION")).unwrap(),
@@ -49,6 +52,7 @@ impl Proof {
             fixed_circuit_params,
             public_data,
             challenge_artifact,
+            summary,
         }
     }
 
