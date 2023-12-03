@@ -1,4 +1,5 @@
 pub mod anvil;
+pub mod etherscan;
 pub mod geth;
 pub mod halo2;
 pub mod helpers;

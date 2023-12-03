@@ -5,4 +5,5 @@ pub mod constants;
 pub mod env;
 pub mod error;
 pub mod utils;
+pub mod verification;
 pub mod witness;

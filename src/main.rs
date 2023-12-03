@@ -1,10 +1,11 @@
 use proof_of_exploit::{
     cli::{
-        exploit_command, handle_verify, ProveArgs, PublishArgs, ScaffoldArgs, VerifyArgs, PROVE,
-        PUBLISH, SCAFFOLD, TEST, VERIFY,
+        exploit_command, ProveArgs, PublishArgs, ScaffoldArgs, VerifyArgs, PROVE, PUBLISH,
+        SCAFFOLD, TEST, VERIFY,
     },
     env::Env,
     utils::{ipfs, scaffold},
+    verification::handle_verify,
     witness::Witness,
 };
 

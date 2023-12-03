@@ -1,18 +1,14 @@
 use crate::{
     env::Env,
     utils::{
-        anvil::types::zkevm_types::Bytes,
-        halo2::{proof::Proof, real_verifier::RealVerifier},
-        huff::compile_huff,
-        ipfs, solidity,
+        anvil::types::zkevm_types::Bytes, halo2::proof::Proof, huff::compile_huff, ipfs, solidity,
     },
 };
 use clap::{arg, command, ArgMatches, Command};
 use eth_types::U256;
 use ethers::utils::parse_ether;
 use home::home_dir;
-use semver::Version;
-use std::{fs::create_dir_all, path::PathBuf, process, str::FromStr};
+use std::{fs::create_dir_all, path::PathBuf, str::FromStr};
 
 pub const EXPLOIT: &str = "exploit";
 pub const TEST: &str = "test";
@@ -169,43 +165,6 @@ impl VerifyArgs {
             proof,
             unpack_dir,
         }
-    }
-}
-
-pub async fn handle_verify(args: VerifyArgs) {
-    let my_version = Version::from_str(env!("CARGO_PKG_VERSION")).unwrap();
-    if my_version < args.proof.version {
-        println!(
-            "This proof was generated using a newer version of Proof of Exploit. Please upgrade to version v{} or latest if you are facing issues.\n",
-            args.proof.version
-        );
-    }
-
-    let verifier = RealVerifier::load_srs(args.srs_path, &args.proof).await;
-    if let Err(error) = verifier.verify(&args.proof).await {
-        println!("Proof verification failed: {:?}", error);
-        process::exit(1);
-    } else {
-        println!("Proof verification success!");
-        println!(
-            "\nPublic Inputs:\nChallenge Codehash: {:?}\nExploit Stipend: {} ether",
-            args.proof.public_data.pox_challenge_codehash,
-            ethers::utils::format_ether(args.proof.public_data.pox_exploit_balance)
-                .parse::<f64>()
-                .unwrap()
-        );
-    }
-
-    if let Some(unpack_dir) = args.unpack_dir {
-        if let Some(challenge_artifact) = args.proof.challenge_artifact {
-            println!("\nUnpacking challenge source code...");
-            challenge_artifact.unpack(unpack_dir);
-            println!("Done!");
-        } else {
-            println!("\nError: Proof does not contain challenge source code to unpack.");
-        }
-    } else {
-        println!("\nTo view challenge source code, use --unpack flag.");
     }
 }
 
