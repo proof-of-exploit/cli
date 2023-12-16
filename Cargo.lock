@@ -4317,12 +4317,15 @@ dependencies = [
  "ethers",
  "ethers-core 2.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures",
+ "getrandom 0.2.10",
  "halo2_proofs",
  "home",
  "itertools",
+ "js-sys",
  "partial-mpt",
  "pinata-sdk",
  "rand_chacha 0.3.1",
+ "rayon",
  "regex",
  "reqwest",
  "semver 1.0.18",
@@ -4331,6 +4334,10 @@ dependencies = [
  "snark-verifier 0.1.1",
  "svm-rs",
  "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-rayon",
+ "web-sys",
  "zkevm-circuits",
 ]
 
@@ -5487,6 +5494,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "spmc"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02a8428da277a8e3a15271d79943e80ccc2ef254e78813a166a08d65e4c3ece5"
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6333,6 +6346,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7706a72ab36d8cb1f80ffbf0e071533974a60d0a308d01a5d0375bf60499a342"
 dependencies = [
  "cfg-if",
+ "serde",
+ "serde_json",
  "wasm-bindgen-macro",
 ]
 
@@ -6384,6 +6399,18 @@ dependencies = [
  "syn 2.0.28",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
+]
+
+[[package]]
+name = "wasm-bindgen-rayon"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df87c67450805c305d3ae44a3ac537b0253d029153c25afc3ecd2edc36ccafb1"
+dependencies = [
+ "js-sys",
+ "rayon",
+ "spmc",
+ "wasm-bindgen",
 ]
 
 [[package]]

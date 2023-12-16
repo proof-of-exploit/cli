@@ -1,3 +1,4 @@
+#[cfg(not(feature = "dep_wasm"))]
 use proof_of_exploit::{
     cli::{
         exploit_command, ProveArgs, PublishArgs, ScaffoldArgs, VerifyArgs, PROVE, PUBLISH,
@@ -9,6 +10,7 @@ use proof_of_exploit::{
     witness::Witness,
 };
 
+#[cfg(not(feature = "dep_wasm"))]
 #[tokio::main]
 async fn main() {
     let env = Env::load();
@@ -44,4 +46,9 @@ async fn main() {
         }
         _ => unreachable!("command not found"),
     }
+}
+
+#[cfg(feature = "dep_wasm")]
+fn main() {
+    unreachable!();
 }

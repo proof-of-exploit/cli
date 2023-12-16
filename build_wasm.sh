@@ -1,0 +1,1 @@
+RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' cargo build --lib --release --no-default-features --features dep_wasm --target wasm32-unknown-unknown -Z build-std=panic_abort,std
