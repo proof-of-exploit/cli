@@ -167,8 +167,23 @@ fn compile_artifact(input: &Input) -> Result<Output, Error> {
     }
 
     let output = solc.wait_with_output()?;
-    let output: Output = serde_json::from_str(std::str::from_utf8(&output.stdout).unwrap())?;
-    Ok(output)
+    if let Ok(output) = serde_json::from_str(std::str::from_utf8(&output.stdout).unwrap()) {
+        Ok(output)
+    } else {
+        if !output.stdout.is_empty() {
+            println!(
+                "solc stdout: {:?}",
+                std::str::from_utf8(&output.stdout).unwrap()
+            );
+        }
+        if !output.stderr.is_empty() {
+            println!(
+                "solc stderr {:?}",
+                std::str::from_utf8(&output.stderr).unwrap()
+            );
+        }
+        Err(Error::InternalError("unexpected solc output"))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
