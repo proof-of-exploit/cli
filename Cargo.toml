@@ -12,17 +12,17 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # anvil
-anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil",  features = [ "default" ], rev = "dea5405", optional = true }
-anvil-core = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil-core",  features = [ "default" ], rev = "dea5405", optional = true }
+anvil = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil", rev = "dea5405", optional = true }
+anvil-core = { git = "https://github.com/foundry-rs/foundry.git", package = "anvil-core", rev = "dea5405", optional = true }
 ethers = { git = "https://github.com/gakonst/ethers-rs", optional = true }
 partial-mpt = { git = "https://github.com/zemse/partial-mpt", branch = "main", optional = true }
 
 # zkevm
-bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main", optional = true }
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main", default-features = false, optional = true }
 eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main", optional = true }
-zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main", optional = true }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20", optional = true }
-snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", rev = "a440ff91", optional = true } 
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits", branch = "main", default-features = false, optional = true }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", rev = "a440ff91", optional = true }
 ethers-core = { version = "2.0.7", optional = true }
 itertools = { version = "0.10", optional = true }
 rand_chacha = { version = "0.3", optional = true }
@@ -54,28 +54,53 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.2", features = ["js"], optional = true }
 
-# [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
-# bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", rev = "fb284230", features = [ "wasm" ], optional = true }
-# eth-types = { git = "https://github.com/zemse/zkevm-circuits", rev = "fb284230", optional = true }
-# zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", rev = "fb284230", optional = true }
+[patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", rev = "16507249", default-features = false, optional = true }
+eth-types = { git = "https://github.com/zemse/zkevm-circuits", rev = "16507249", optional = true }
+zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", rev = "16507249", default-features = false, optional = true }
 
 # for local development only
-[patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
-bus-mapping = { path = "../zkevm-circuits/bus-mapping", features = [ "wasm" ], optional = true }
-eth-types = { path = "../zkevm-circuits/eth-types", optional = true }
-zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", optional = true }
+# [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
+# bus-mapping = { path = "../zkevm-circuits/bus-mapping", default-features = false, optional = true }
+# eth-types = { path = "../zkevm-circuits/eth-types", optional = true }
+# zkevm-circuits = { path = "../zkevm-circuits/zkevm-circuits", default-features = false }
 
 [features]
-default = ["dep_wasm"]
-dep_binary = ["dep_mainnet_fork", "dep_zkevm", "dep_misc"]
-dep_mainnet_fork = ["anvil", "anvil-core", "ethers", "partial-mpt"]
-dep_zkevm = ["bus-mapping", "eth-types", "zkevm-circuits", "halo2_proofs", "snark-verifier", "ethers-core", "itertools", "rand_chacha"]
-dep_misc = ["tokio", "futures", "dotenv", "clap", "serde", "serde_json", "regex", "reqwest", "pinata-sdk", "svm-rs", "semver", "home"]
-dep_wasm = [
-    "halo2_proofs", "zkevm-circuits", 
+default = ["nowasm"]
+nowasm = [
+    "bus-mapping/nowasm",
+    "zkevm-circuits/nowasm",
+    "anvil",
+    "anvil-core",
+    "ethers",
+    "partial-mpt",
+    "eth-types",
+    "snark-verifier",
+    "ethers-core",
+    "itertools",
+    "rand_chacha",
+    "tokio",
+    "futures",
+    "dotenv",
+    "clap",
+    "serde",
+    "serde_json",
+    "regex",
+    "reqwest",
+    "pinata-sdk",
+    "svm-rs",
+    "semver",
+    "home",
+]
+wasm = [
+    "zkevm-circuits/wasm",
+    "bus-mapping/wasm",
     "getrandom",
-     "wasm-bindgen", 
-     "console_error_panic_hook",
-     "rayon", "wasm-bindgen-rayon", "web-sys", "wasm-bindgen-futures", 
-     "js-sys"
-    ]
+    "wasm-bindgen",
+    "console_error_panic_hook",
+    "rayon",
+    "wasm-bindgen-rayon",
+    "web-sys",
+    "wasm-bindgen-futures",
+    "js-sys",
+]
