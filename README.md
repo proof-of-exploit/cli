@@ -4,13 +4,13 @@ Security researchers can prove that a smart contract can be exploited without re
 
 Bug bounty managers receiving lot of bug reports can easily screen bug reports.
 
-For example, here is a [repository](https://github.com/zemse/proof-of-exploit-huff-template) which demonstrates exploiting a re-entrancy vulnerability and here is it's proof of exploit https://proofofexplo.it/verify/Qmek2Mo43HgFn3B6kjMHXBLznqbxyiyxMbTV9sYbJ4oKwE
+For example, this [repository](https://github.com/zemse/proof-of-exploit-huff-template) demonstrates exploiting a re-entrancy vulnerability and here is it's [proof of exploit link](https://proofofexplo.it/verify/Qmek2Mo43HgFn3B6kjMHXBLznqbxyiyxMbTV9sYbJ4oKwE). 
 
 ## Technical details
 
 This project depends on:
 
-- [fork of PSE/zkevm-circuits](https://github.com/zemse/zkevm-circuits) for the zk stuff.
+- [fork of PSE/zkevm-circuits](https://github.com/proof-of-exploit/zkevm-circuits) for the zk stuff.
 - [anvil](https://github.com/foundry-rs/foundry/tree/master/anvil) for spawning in-memory mainnet fork chain.
 
 A block is locally mined containing the transaction which solves challenge. This block is used as a witness to the [SuperCircuit](https://github.com/privacy-scaling-explorations/zkevm-circuits/blob/7e9603a28a818819c071c81fd2f4f6b58737dea6/zkevm-circuits/src/super_circuit.rs#L270). 

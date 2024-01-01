@@ -55,9 +55,9 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
-bus-mapping = { git = "https://github.com/zemse/zkevm-circuits", rev = "16507249", default-features = false, optional = true }
-eth-types = { git = "https://github.com/zemse/zkevm-circuits", rev = "16507249", optional = true }
-zkevm-circuits = { git = "https://github.com/zemse/zkevm-circuits", rev = "16507249", default-features = false, optional = true }
+bus-mapping = { git = "https://github.com/proof-of-exploit/zkevm-circuits", rev = "16507249", default-features = false, optional = true }
+eth-types = { git = "https://github.com/proof-of-exploit/zkevm-circuits", rev = "16507249", optional = true }
+zkevm-circuits = { git = "https://github.com/proof-of-exploit/zkevm-circuits", rev = "16507249", default-features = false, optional = true }
 
 # for local development only
 # [patch."https://github.com/privacy-scaling-explorations/zkevm-circuits"]
