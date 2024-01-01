@@ -1,23 +1,12 @@
-# proof-of-exploit (WIP)
+# Proof of Exploit CLI
 
-Enables a user to prove that they can solve a challenge on EVM without revealing their solution.
+Security researchers can prove that a smart contract can be exploited without revealing the bug.
 
-## Installation
+Bug bounty managers receiving lot of bug reports can easily screen bug reports.
 
-To install the `exploit` binary you can use the following command:
+For example, here is a [repository](https://github.com/zemse/proof-of-exploit-huff-template) which demonstrates exploiting a re-entrancy vulnerability and here is it's proof of exploit https://proofofexplo.it/verify/Qmek2Mo43HgFn3B6kjMHXBLznqbxyiyxMbTV9sYbJ4oKwE
 
-```
-cargo install --locked --path .
-```
-
-See [this section](#how-does-this-work) for further info.
-
-## Potential use cases
-
-- Decentralised CTF (not practical as of now, since current prover effort is very huge).
-- Whitehat can prove knowledge of vulnerability on smart contract (by constructing it as a challenge).
-
-## What's under the hood?
+## Technical details
 
 This project depends on:
 
@@ -33,7 +22,7 @@ contract Challenge {
     bool isSolved;
 
     function entryPoint() public returns (bool) {
-        // arbitrary challenge somewhere on EVM
+        // arbitrary EVM code
 
         isSolved = true;
     }
@@ -42,9 +31,33 @@ contract Challenge {
 
 The challenge contract codehash is revealed in the public inputs of the zksnark. 
 
-For example, here is a [repository](https://github.com/zemse/proof-of-exploit-huff-template) which demonstrates exploiting a re-entrancy vulnerability.
+## Installation
 
-## How does this work?
+To install the `exploit` binary you can clone this repository and run the following command:
+
+```
+cargo install --locked --path .
+```
+
+Note: the `--locked` is important 
+
+Installation on a fresh Ubuntu 22 instance:
+
+```shell
+# install libs
+sudo apt-get update
+sudo apt-get install gcc libssl-dev pkg-config
+# install rust and cargo
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+# install proof-of-exploit cli
+git clone https://github.com/proof-of-exploit/cli proof-of-exploit-cli
+cd proof-of-exploit-cli
+cargo install --locked --path .
+```
+
+
+## Usage
 
 This project creates a binary called `exploit`.
 
@@ -69,19 +82,7 @@ Options:
 For generating a zk proof, the `prove` subcommand can be used.
 
 ```
-$ exploit prove --help
-
-Usage: exploit prove [OPTIONS]
-
-Options:
-      --rpc <URL>                 Enter ethereum archive node RPC url (required)
-      --block <NUMBER>            Enter the fork block number (required)
-      --challenge <CONTRACT>      Enter hex bytecode or file path (required)
-      --exploit <CONTRACT>        Enter hex bytecode or file path (required)
-      --tx <HEX>                  Enter the tx
-      --dir <PATH>                Enter the dir for srs params
-      --mock                      Use mock prover
-  -h, --help                      Print help
+$ exploit prove
 ```
 
 - `Challenge` contract will be public and included in the proof.
@@ -104,12 +105,26 @@ test passed
 ### Verification
 
 ```
-$ exploit verify --help
+$ exploit verify --proof Qmek2Mo43HgFn3B6kjMHXBLznqbxyiyxMbTV9sYbJ4oKwE
+Proof verification success!
 
-Usage: exploit verify [OPTIONS]
+Public Inputs:
+  Chain Id: 11155111
+  Block: 4814850 https://sepolia.etherscan.io/block/4814850
+  State Root: 0x17a4764598b67b7c6fb327e9ae56693b641606850b1a28758b6c28b2a3381ce3
+  Challenge Codehash: 0x11864e842a04f15016579a7e3f747a18e7dc6eb8c817789bb02be4f94a19d18c
 
-Options:
-      --dir <PATH>       Enter the srs directory
-      --proof <PATH>     Enter the proof path
-  -h, --help             Print help
+To view challenge source code, use --unpack flag.
 ```
+
+### Verification on website
+
+For the ease of use for the bug bounty manager, a website can be used to verify the proofs.
+
+https://proofofexplo.it/verify/Qmek2Mo43HgFn3B6kjMHXBLznqbxyiyxMbTV9sYbJ4oKwE
+
+The project is compiled into WASM using the `wasm_build.sh` script.
+
+## Credits
+
+Thanks to [Privacy and Scaling Explorations](http://github.com/privacy-scaling-explorations) for supporting this project.
